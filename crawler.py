@@ -267,7 +267,32 @@ def extract_policy_from_page_bs4(page_source) -> BeautifulSoup:
             print('No body found?!')
             raise Exception
 
-        # if there's an article, reduce the soup to that
+        # if there's a main element, reduce the soup to that
+        main = soup.find("main")
+        if main is not None:
+            print('Main (tag) found, reducing soup...')
+        else:
+            # some sites use the role 'article' instead of the tag itself
+            article = soup.find("div", {"role": re.compile('.*[mM]main.*')})
+            if main is not None:
+                print('Main (role) found, reducing soup...')
+            else:
+                # some sites use the class 'article' instead of the tag itself
+                main = soup.find("div", {"role": re.compile('.*[mM]main.*')})
+                if main is not None:
+                    print('Main (role) found, reducing soup...')
+                else:
+                    # and some sites use the id 'article' instead of the tag itself
+                    main = soup.find("div", id=re.compile('.*[mM]main.*'))
+                    if main is not None:
+                        print('Main (role) found, reducing soup...')
+        if main is not None:
+            # remove all elements of the soup except the article and its children
+            new_soup = BeautifulSoup(str(main), 'html.parser')
+            # Replace the old soup with the new one
+            soup = new_soup
+
+        # if there's an article element, reduce the soup to that
         article = soup.find("article")
         if article is not None:
             print('Article (tag) found, reducing soup...')
@@ -286,7 +311,6 @@ def extract_policy_from_page_bs4(page_source) -> BeautifulSoup:
                     article = soup.find("div", id=re.compile('.*[aA]rticle.*'))
                     if article is not None:
                         print('Article (role) found, reducing soup...')
-
         if article is not None:
             # remove all elements of the soup except the article and its children
             new_soup = BeautifulSoup(str(article), 'html.parser')
