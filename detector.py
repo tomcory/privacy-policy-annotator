@@ -28,7 +28,6 @@ def is_policy(html: str) -> (str, float):
     # configure and query GPT
     completion = client.chat.completions.create(
         model="gpt-3.5-turbo",  # gpt-3.5-turbo performs very well across multiple languages and is cheap
-        temperature=0,  # low temp = less randomness
         n=1,  # only generate one choice
         max_tokens=1,  # generate just one single token ('true', 'false' and 'unknown' each have 1 token, so they fit)
         messages=[

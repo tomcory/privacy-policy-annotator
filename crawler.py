@@ -9,6 +9,7 @@ from selenium.webdriver.firefox.webdriver import WebDriver
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
+import detector
 import util
 
 
@@ -88,20 +89,35 @@ def crawl_list(pkgs: list[str], retries: int = 2):
 
         if len(policy) > 0:
             print('Saving original HTML to file...')
-            file_name = 'original/' + pkg_name + '.html'
+            file_name = 'output/original/' + pkg_name + '.html'
             util.write_to_file(file_name, policy)
         else:
             print('Empty original policy, not saving to file')
             continue
 
+        # clean up the page's html
         policy = clean_policy(policy)
 
         if len(policy) > 0:
-            print('Saving cleaned HTML to file...')
-            file_name = 'cleaned/' + pkg_name + '.html'
+
+            # check whether the page actually contains a privacy policy
+            is_policy, cost = detector.is_policy(policy)
+
+            print('Detector cost %s cents.' % cost)
+
+            # sort the output accordingly
+            if is_policy == 'true':
+                print("It's a policy, saving to file in /output/cleaned...")
+                folder = 'cleaned'
+            elif is_policy == 'unknown':
+                print("Unsure whether it's a policy, saving to file in /output/unknown...")
+                folder = 'unknown'
+            else:
+                print("It's not a policy, saving to file in /output/rejected...")
+                folder = 'rejected'
+
+            file_name = 'output/' + folder + '/' + pkg_name + '.html'
             util.write_to_file(file_name, policy)
-        else:
-            print('Empty cleaned policy, not saving to file')
 
 
 def fetch_policy(pkg_name: str, retries: int = 0, driver: WebDriver = None) -> str:
@@ -200,7 +216,7 @@ def fetch_policy(pkg_name: str, retries: int = 0, driver: WebDriver = None) -> s
 def clean_policy(page) -> str:
     try:
         print('Attempting bs4 extract...')
-        policy_bs4 = extract_policy_from_page_bs4(page)
+        policy_bs4 = clean_soup(page)
         if policy_bs4:
             print('bs4 extract successful.')
             policy = policy_bs4
@@ -244,7 +260,7 @@ def accept_all_cookies(driver):
         pass
 
 
-def extract_policy_from_page_bs4(page_source) -> BeautifulSoup:
+def clean_soup(page_source) -> BeautifulSoup:
     """
     Extract the policy text from the page source using BeautifulSoup.
 
@@ -345,6 +361,8 @@ def extract_policy_from_page_bs4(page_source) -> BeautifulSoup:
             print('Decomposing footer...')
             footer.decompose()
 
+        print("Removing commas...")
+
         # remove all comments
         comments = soup.find_all(string=lambda text: isinstance(text, Comment))
         for comment in comments:
@@ -379,19 +397,21 @@ def extract_policy_from_page_bs4(page_source) -> BeautifulSoup:
         # Find all headline tags (h1 through h6)
         headline_tags = soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6'])
 
-        print('Finding lowest-order headline tag, there are %s headlines' % headline_tags)
+        print('Finding least significant headline tag, there are %s headlines' % len(headline_tags))
 
         # Determine the highest-order headline tag
         least_significant_headline = min(5, max((int(tag.name[1]) for tag in headline_tags), default=1))
 
-        # unwrap all inline tags as defined by the list above
+        print("Least significant headline tag is h%s" % least_significant_headline)
+
+        # unwrap all inline tags as defined by the list above, transforming pseudo-headlines into proper headline tags
         for tag in inline_tags:
             for inline_element in soup.find_all(tag):
                 if len(inline_element.parent.contents) == 1 and inline_element.name in highlight_tags and \
                         inline_element.parent.name not in headline_tags:
                     replacement_tag = 'h' + str(least_significant_headline + 1)
                     print('Replacing standalone %s with %s: %s' % (
-                    inline_element.name, replacement_tag, inline_element.text))
+                        inline_element.name, replacement_tag, inline_element.text))
                     h4_element = soup.new_tag(replacement_tag)
                     h4_element.string = inline_element.text
                     inline_element.replace_with(h4_element)
@@ -399,47 +419,62 @@ def extract_policy_from_page_bs4(page_source) -> BeautifulSoup:
                     inline_element.unwrap()
 
         print('Inline tags unwrapped.')
+        print('Wrapping non-terminal text in <p> elements...')
+
+        # if an element has direct text as well as children, wrap the text content in <p> elements
+        for element in soup.find_all():
+            if len(element.contents) > 1:
+                for child in element.contents:
+                    if isinstance(child, NavigableString) and child.strip():
+                        print("Wrapping non-terminal text in %s" % element.name)
+                        if element.name == "h2":
+                            for child2 in element.children:
+                                print("h2 child: %s" % child)
+                        new_p = soup.new_tag("p")
+                        new_p.string = child
+                        child.replace_with(new_p)
+
         print('Flattening soup...')
 
         # flatten the soup, unwrapping all elements that don't have text directly within them
         allowed_wrapper_tags = ['ul', 'ol', 'li', 'table', 'thead', 'tbody', 'tr', 'td', 'th', 'br']
-        tags = [tag for tag in soup.find_all() if tag.name is not None]
-        for tag in tags:
+        elements = [element for element in soup.find_all() if element.name is not None]
+        for element in elements:
             # Check if tag has no text of its own
-            if (not any(isinstance(child, NavigableString) and child.strip() for child in tag.children)) and (
-                    tag.name not in allowed_wrapper_tags):
-                tag.unwrap()
+            if (not any(isinstance(child, NavigableString) and child.strip() for child in element.children)) and (
+                    element.name not in allowed_wrapper_tags):
+                element.unwrap()
 
         print('Concatenating text...')
 
         # remove all attributes from each tag and concatenate text
-        for tag in soup.find_all():  # True finds all tags
-            tag.attrs = {}
+        for element in soup.find_all():
+            element.attrs = {}
 
             # text can be split into multiple content entries; concatenate adjacent entries
             i = 0
-            while i < len(tag.contents):
-                content = tag.contents[i]
+            while i < len(element.contents):
+                content = element.contents[i]
 
                 # if the content is a NavigableString, start concatenation
                 if isinstance(content, NavigableString):
                     concatenated_text = content
 
                     # continue concatenating adjacent NavigableStrings
-                    while i + 1 < len(tag.contents) and (isinstance(tag.contents[i + 1], NavigableString) or
-                                                         tag.contents[i + 1].name == 'br'):
-                        if tag.contents[i + 1].name == 'br':
+                    while i + 1 < len(element.contents) and (isinstance(element.contents[i + 1], NavigableString) or
+                                                             element.contents[i + 1].name == 'br'):
+                        if element.contents[i + 1].name == 'br':
                             print('Replacing <br>')
                             concatenated_text += '\n '
                         else:
-                            concatenated_text += tag.contents[i + 1]
-                        del tag.contents[i + 1]  # Remove the next item as it's concatenated
+                            concatenated_text += element.contents[i + 1]
+                        del element.contents[i + 1]  # Remove the next item as it's concatenated
 
                     # normalize whitespace in the concatenated text
                     # concatenated_text = ' '.join(concatenated_text.split())
 
                     # replace the original string with the concatenated, normalized one
-                    tag.contents[i].replace_with(concatenated_text.replace(' ', ' '))
+                    element.contents[i].replace_with(concatenated_text.replace(' ', ' '))
 
                 i += 1  # Move to the next content item
 
