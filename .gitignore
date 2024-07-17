@@ -3,3 +3,6 @@ venv
 .code
 cleaned
 original
+.env
+output
+res
