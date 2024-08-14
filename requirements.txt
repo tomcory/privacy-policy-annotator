@@ -1,4 +1,6 @@
-requests~=2.31.0
+chardet~=5.2.0
 beautifulsoup4~=4.12.2
+tiktoken~=0.5.2
 selenium~=4.16.0
-langdetect~=1.0.9
+python-dotenv~=1.0.0
+openai~=1.39.0

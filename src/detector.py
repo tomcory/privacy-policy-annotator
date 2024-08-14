@@ -1,0 +1,90 @@
+import tiktoken
+from bs4 import BeautifulSoup
+
+from src import api_wrapper, util
+
+system_msg = """Your task is to analyze a given text snippet and determine if the excerpt is likely part of a 
+    privacy policy. Respond with only one word: 'true' if the excerpt seems to be from a privacy policy, 'false' if 
+    it likely is not, and 'unknown' if there's not enough information to decide. Do not provide any additional 
+    explanations or context in your response.""".replace('\n', '')
+
+task = "detector"
+model = api_wrapper.models['gpt-4o-mini']
+
+
+def execute(run_id: str, pkg: str, in_folder: str, out_folder: str, use_batch: bool = False):
+    print(f">>> Detecting whether {pkg} is a policy...")
+    file_path = f"{in_folder}/{pkg}.html"
+
+    try:
+        policy = util.read_from_file(file_path)
+
+        if use_batch:
+            output, cost = api_wrapper.retrieve_batch_result_entry(run_id, task, f"{run_id}_{task}_{pkg}_0")
+        else:
+            output, cost = api_wrapper.prompt(
+                run_id=run_id,
+                pkg=pkg,
+                task=task,
+                model=model,
+                system_msg=system_msg,
+                user_msg=generate_excerpt(policy),
+                max_tokens=1
+            )
+
+        # write the pkg and cost to "output/costs-detector.csv"
+        with open(f"output/{run_id}/gpt_responses/costs_detector.csv", "a") as f:
+            f.write(f"{pkg},{cost}\n")
+
+        with open(f"output/{run_id}/gpt_responses/detector/{pkg}.txt", "w") as f:
+            f.write(output)
+
+        print(f"Detector cost {cost} cents.")
+
+        # sort the output accordingly
+        if output == 'true':
+            print("It's a policy, saving to file in /output/accepted...")
+            folder = "accepted"
+        elif output == 'unknown':
+            print("Unsure whether it's a policy, saving to file in /output/unknown...")
+            folder = 'unknown'
+        else:
+            print("It's not a policy, saving to file in /output/rejected...")
+            folder = 'rejected'
+
+        file_name = f"output/{run_id}/{folder}/{pkg}.html"
+        util.write_to_file(file_name, policy)
+    except Exception as e:
+        print(f"Error cleaning {pkg}: {e}")
+        util.write_to_file(f"output/{run_id}/log/failed.txt", pkg)
+
+
+def prepare_batch(run_id: str, pkg: str, in_folder: str):
+    html = util.read_from_file(f"{in_folder}/{pkg}.html")
+    if html is None or html == '':
+        return None
+
+    batch_entry = api_wrapper.prepare_batch_entry(
+        run_id=run_id,
+        pkg=pkg,
+        task=task,
+        model=model,
+        system_msg=system_msg,
+        user_msg=str(generate_excerpt(html))
+    )
+
+    return [batch_entry]
+
+
+def generate_excerpt(html: str):
+    encoding = tiktoken.get_encoding('cl100k_base')
+
+    html = BeautifulSoup(html, 'html.parser').get_text()
+    encoded_html = encoding.encode(html)
+
+    # 200 tokens should be enough to determine whether the text is a privacy policy
+    # get 200 tokens from the middle of the document to ensure that we have actual content
+    encoded_length = len(encoded_html)
+    excerpt_start = max(encoded_length // 2 - 100, 0)
+    excerpt_end = min(encoded_length // 2 + 100, encoded_length)
+    return encoding.decode(encoded_html[excerpt_start:excerpt_end])
