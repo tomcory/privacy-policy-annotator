@@ -61,10 +61,10 @@ def run_pipeline(
         skip_parse: bool = False,
         skip_annotate: bool = False,
         skip_review: bool = False,
-        batch_detect: bool = True,
-        batch_headline_fix: bool = True,
-        batch_annotate: bool = True,
-        batch_review: bool = True):
+        batch_detect: bool = False,
+        batch_headline_fix: bool = False,
+        batch_annotate: bool = False,
+        batch_review: bool = False):
 
     # define the processing steps of the pipeline
     processing_steps = [
