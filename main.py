@@ -4,7 +4,7 @@ import sys
 import time
 from typing import Callable
 
-from src import crawler, cleaner, detector, fixer, parser, annotator, reviewer, gpt_api, util
+from src import crawler, cleaner, detector, fixer, parser, annotator, reviewer, api_wrapper, util
 
 
 def prepare_batch(run_id: str, task: str, in_folder: str, func: Callable[[str, str, str], list[dict]]):
@@ -28,7 +28,7 @@ def prepare_batch(run_id: str, task: str, in_folder: str, func: Callable[[str, s
 def run_batch(run_id: str, task: str, in_folder: str, func: Callable[[str, str], list[dict]]):
     # prepare and run the batch
     prepare_batch(run_id, task, in_folder, func)
-    gpt_api.run_batch(run_id, task)
+    api_wrapper.run_batch(run_id, task)
 
     print(f"Batch {task} started. Waiting for completion...")
 
@@ -36,10 +36,10 @@ def run_batch(run_id: str, task: str, in_folder: str, func: Callable[[str, str],
     count = 0
     while True:
         count += 1
-        batch_status = gpt_api.check_batch_status(run_id, task)
+        batch_status = api_wrapper.check_batch_status(run_id, task)
         if batch_status.status == "completed":
             print(f"Batch completed after {count} checks, fetching results...")
-            gpt_api.get_batch_results(run_id, task)
+            api_wrapper.get_batch_results(run_id, task)
             return True
         elif batch_status.status == "failed":
             print(f"Batch failed after {count} checks.")
@@ -68,16 +68,16 @@ def run_pipeline(
 
     # define the processing steps of the pipeline
     processing_steps = [
-        #("clean", skip_clean, False, False, cleaner.execute, "original", "cleaned"),  # cleaner
-        #("detector", not batch_detect, True, False, detector.prepare_batch, "cleaned", "accepted"),  # batch detector
-        #("detect", skip_detect, False, batch_detect, detector.execute, "cleaned", "accepted"),  # detector
-        #("fixer", not batch_headline_fix, True, False, fixer.prepare_batch, "accepted", "fixed"),  # batch fixer
-        #("fix", skip_headline_fix, False, batch_headline_fix, fixer.execute, "accepted", "fixed"),  # fixer
-        #("parse", skip_parse, False, False, parser.execute, "fixed", "json"),  # parser
-        #("annotator", not batch_annotate, True, False, annotator.prepare_batch, "json", "annotated"),  # batch annotator
+        ("clean", skip_clean, False, False, cleaner.execute, "original", "cleaned"),  # cleaner
+        ("detector", not batch_detect, True, False, detector.prepare_batch, "cleaned", "accepted"),  # batch detector
+        ("detect", skip_detect, False, batch_detect, detector.execute, "cleaned", "accepted"),  # detector
+        ("fixer", not batch_headline_fix, True, False, fixer.prepare_batch, "accepted", "fixed"),  # batch fixer
+        ("fix", skip_headline_fix, False, batch_headline_fix, fixer.execute, "accepted", "fixed"),  # fixer
+        ("parse", skip_parse, False, False, parser.execute, "fixed", "json"),  # parser
+        ("annotator", not batch_annotate, True, False, annotator.prepare_batch, "json", "annotated"),  # batch annotator
         ("annotate", skip_annotate, False, batch_annotate, annotator.execute, "json", "annotated"),  # annotator
-        # ("review", not batch_review, True, False, reviewer.prepare_batch, "annotated", "reviewed"),  # batch reviewer
-        # ("review", skip_review, False, batch_review, reviewer.execute, "annotated", "reviewed")  # reviewer
+        ("review", not batch_review, True, False, reviewer.prepare_batch, "annotated", "reviewed"),  # batch reviewer
+        ("review", skip_review, False, batch_review, reviewer.execute, "annotated", "reviewed")  # reviewer
     ]
 
     # prepare the output folders for the given run id
@@ -126,13 +126,6 @@ def run_pipeline(
 
 
 def main():
-
-    # gpt_api.check_batch_status("run1-top", "batch-fixed")
-    # gpt_api.check_batch_status("run1-bottom", "batch-fixed")
-    # gpt_api.get_batch_results("batchfix", "batch-fixed")
-    # run_batch_fixer("run1-top")
-    # run_batch_fixer("run1-bottom")
-    # return
 
     # parse the run id from the command line argument "-run-id" or exit if not provided
     if "-run-id" in sys.argv:
