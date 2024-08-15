@@ -170,10 +170,14 @@ def main():
     skip_review = "-no-review" in sys.argv
 
     # parse command line args that indicate which LLM-reliant steps to run in batch mode
-    batch_detect = "-batch-detect" in sys.argv
-    batch_headline_fix = "-batch-headline-fix" in sys.argv
-    batch_annotate = "-batch-annotate" in sys.argv
-    batch_review = "-batch-review" in sys.argv
+    # batch_detect = "-batch-detect" in sys.argv
+    # batch_headline_fix = "-batch-headline-fix" in sys.argv
+    # batch_annotate = "-batch-annotate" in sys.argv
+    # batch_review = "-batch-review" in sys.argv
+    batch_detect = False
+    batch_headline_fix = False
+    batch_annotate = False
+    batch_review = False
 
     # if no "skip-*" or "batch-*" arguments are provided, call the pipeline with the default arguments
     if (not skip_crawl

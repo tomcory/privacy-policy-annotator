@@ -1,229 +1,263 @@
+import os
+import time
 import json
+import timeit
+import logging
+import requests
+import datetime
+from typing import Dict, Optional, List, Tuple
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
-import tiktoken
-from dotenv import load_dotenv
-from openai import OpenAI
-
+logging.Formatter.converter = time.localtime
+logging.basicConfig(
+    filename='open_source.log',
+    level=logging.DEBUG,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
 
 models = {
-    'gpt-3.5-turbo': {
-        'name': 'gpt-3.5-turbo',
-        'encoding': 'cl100k_base',
-        'input_price': (0.5 / 1000000),
-        'output_price': (1.5 / 1000000),
-        'input_price_batch': (0.25 / 1000000),
-        'output_price_batch': (0.75 / 1000000)
-    },
-    'gpt-4': {
-        'name': 'gpt-4',
-        'encoding': 'cl100k_base',
-        'input_price': (30 / 1000000),
-        'output_price': (60 / 1000000),
-        'input_price_batch': (15 / 1000000),
-        'output_price_batch': (30 / 1000000)
-    },
-    'gpt-4o': {
-        'name': 'gpt-4o',
-        'encoding': 'o200k_base',
-        'input_price': (5 / 1000000),
-        'output_price': (15 / 1000000),
-        'input_price_batch': (2.5 / 1000000),
-        'output_price_batch': (7.5 / 1000000)
-    },
-    'gpt-4o-mini': {
-        'name': 'gpt-4o-mini',
-        'encoding': 'o200k_base',
-        'input_price': (0.15 / 1000000),
-        'output_price': (0.6 / 1000000),
-        'input_price_batch': (0.075 / 1000000),
-        'output_price_batch': (0.3 / 1000000)
-    }
+    'llama8b': 'llama3.1',
+    'gemma9b': 'gemma2',
+    'mistral7b': 'mistral',
+    'mistral-nemo12b': 'mistral-nemo',
+    'mixtral7b': 'mixtral:8x7b',
+    'gemma27b': 'gemma2:27b',
+    'llama70b': 'llama3.1:70b',
 }
 
+BASE_URL = 'http://localhost:11434'
+ENDPOINT = '/api/generate'
+MAX_WORKERS = 4
+
+def initialize() -> str:
+    """
+    Make sure the ollama server is running and return the URL to use for requests.
+
+    :return: String: URL to use for requests
+    """
+
+    try:
+        response = requests.get(BASE_URL)
+        response.raise_for_status()
+    except requests.exceptions.RequestException as e:
+        print('ollama is not running on localhost:11434')
+        logging.error(f'Failed to connect to ollama server: {e}')
+        raise e
+
+    return BASE_URL + ENDPOINT
+
+def process_response(response, llm_name: str):
+    """
+    Process the response from the ollama server.
+
+    :param response: Response from the server
+    :param llm_name: String: Name of the model
+    :return: Parsed JSON response or empty dictionary if parsing fails
+    """
+    try:
+        return json.loads(response['response'])
+    except (json.JSONDecodeError, KeyError) as e:
+        print(f'Error decoding JSON: {e}')
+        logging.error(f'Error decoding JSON for model {llm_name}: {e}. Raw model output: {response["response"]}', exc_info=True)
+        return {}
+
+def query_ollama(
+        url: str,
+        model_code: str,
+        user_prompt: str,
+        system_prompt: str,
+        temperature: float = 0.3,
+        max_tokens: int = 500,
+        top_p: float = 0.9,
+        top_k: int = 40,
+        repeat_penalty: float = 0.9
+) -> Dict:
+
+    """
+    Query the ollama server with the given parameters.
+
+    :param url: String: URL to use for requests
+    :param model_code: String: Model code to use for the request
+    :param user_prompt: String: User prompt to send to the server
+    :param system_prompt: String: System prompt to send to the server
+    :param temperature: Float: Temperature to use for the request
+    :param max_tokens: Int: Maximum number of tokens to generate
+    :param top_p: Float: Top-p value to use for the request
+    :param top_k: Int: Top-k value to use for the request
+    :param repeat_penalty: Float: Repeat penalty to use for the request
+    :return: Dict: Response from the server
+    """
+
+    options = {
+        'temperature': temperature,
+        'max_tokens': max_tokens,
+        'top_p': top_p,
+        'top_k': top_k,
+        'repeat_penalty': repeat_penalty,
+    }
+
+    payload = {
+        'model': model_code,
+        'user_prompt': user_prompt,
+        'system_prompt': system_prompt,
+        'options': options,
+        'format': 'json',
+        'stream': False,
+    }
+
+    try:
+        response = requests.post(url, json=payload)
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        logging.error(f'Failed to query ollama server: {e}')
+        raise e
+
+def worker(
+        url: str,
+        model_code: str,
+        user_prompt: str,
+        system_prompt: str,
+        options: Optional[Dict] = None
+) -> tuple[Dict, float]:
+
+    """
+    Worker function for the ollama pipeline.
+
+    :param url: String: URL to use for requests
+    :param model_code: String: Model code to use for the request
+    :param user_prompt: String: User prompt to send to the server
+    :param system_prompt: String: System prompt to send to the server
+    :param options: Dict: Additional options to send to the server
+    :return: Tuple: Processed response and processing time in seconds
+    """
+
+    user_prompt = str(user_prompt)
+    start_time = timeit.default_timer()
+
+    if not options:
+        response = query_ollama(url, model_code, user_prompt, system_prompt)
+    else:
+        temperature = options.get('temperature', 0.3)
+        max_tokens = options.get('max_tokens', 500)
+        top_p = options.get('top_p', 0.9)
+        top_k = options.get('top_k', 40)
+        repeat_penalty = options.get('repeat_penalty', 0.9)
+        response = query_ollama(url, model_code, user_prompt, system_prompt, temperature, max_tokens, top_p, top_k, repeat_penalty)
+
+    end_time = timeit.default_timer()
+    return process_response(response, model_code), end_time - start_time
+
+def send_batched_ollama_queries(
+        url: str,
+        inputs: list,
+        model_code: str,
+        system_prompt: str,
+        options: Optional[Dict] = None,
+        max_workers: int = MAX_WORKERS
+) -> Tuple[List[Dict], float]:
+
+    """
+    Send batched queries to the ollama server.
+
+    :param url: String: URL to use for requests
+    :param inputs: List: List of input data
+    :param model_code: String: Model code to use for the request
+    :param system_prompt: String: System prompt to send to the server
+    :param options: Dict: Additional options to send to the server
+    :param max_workers: Int: Maximum number of workers to use
+    :return:
+    """
+
+    start_time = timeit.default_timer()
+    results = []
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = [executor.submit(worker, url, model_code, input_data, system_prompt, options) for input_data in inputs]
+        for future in as_completed(futures):
+            results.append(future.result())
+
+    end_time = timeit.default_timer()
+    logging.info(f'Batch processing completed in {end_time - start_time:.2f} seconds.')
+
+    return results, end_time - start_time
+
+# ----------------------------------- conform with given API -----------------------------------
 
 def prompt(
         run_id: str,
         pkg: str,
         task: str,
-        model: dict,
+        model: str,
         system_msg: str,
         user_msg: str,
-        examples: list[tuple[str, str]] = None,
-        n: int = 1,
-        max_tokens: int = 2048
-) -> (str, float):
+        max_tokens: int = 2048,
+        examples: Optional[List[Tuple[str, str]]] = None
+) -> tuple[str, float]:
 
-    # load the OPENAI_API_KEY environment variable from the .env file and create an OpenAI client with it
-    load_dotenv()
-    client = OpenAI()
-    encoding = tiktoken.get_encoding(model['encoding'])
+    """
+    Prompt the ollama server with the given parameters.
 
-    # calculate the length of the input messages
-    system_len = len(encoding.encode(system_msg))
-    user_len = len(encoding.encode(user_msg))
-    example_len = sum(len(encoding.encode(example[0])) + len(encoding.encode(example[1])) for example in examples)
+    :param run_id: String: ID of the run
+    :param pkg: String: Name of the package
+    :param task: String: Name of the task
+    :param model: String: Model code to use for the request
+    :param system_msg: String: System message to send to the server
+    :param user_msg: String: User message to send to the server
+    :param max_tokens: Int: Maximum number of tokens to generate
+    :param examples: **UNUSED** List: List of examples to send to the server
+    :return: Tuple: Response from the server and the processing time of the request
+    """
 
-    messages = prepare_messages(system_msg, user_msg, examples)
+    url = initialize()
+    response, processing_time = worker(url, model, user_msg, system_msg, {'max_tokens': max_tokens})
 
-    # configure and query GPT
-    completion = client.chat.completions.create(
-        model=model['name'],
-        n=n,
-        max_tokens=max_tokens,
-        messages=messages
-    )
+    if run_id is not None and pkg is not None:
+        # log the processing time and response
+        with open(f"output/{run_id}/{model}-responses/times-{task}.csv", "a") as f:
+            f.write(f"{pkg},{processing_time}\n")
+        with open(f"output/{run_id}/{model}-responses/{task}/{pkg}.json", "w") as f:
+            f.write(json.dumps(response, indent=4))
 
-    # extract the output text from the response message
-    output = completion.choices[0].message.content
-    output_len = len(encoding.encode(output))
+    return json.dumps(response), processing_time
 
-    # calculate the cost of the API call based on the total number of tokens used
-    cost = (system_len + user_len + example_len) * model['input_price'] + output_len * model['output_price']
+# ----------------------------------- new for batching with ollama -----------------------------------
 
-    if run_id is not None and pkg is not None and task is not None:
-        # log the cost and response
-        with open(f"output/{run_id}/gpt-responses/costs-{task}.csv", "a") as f:
-            f.write(f"{pkg},{cost}\n")
-        with open(f"output/{run_id}/gpt-responses/{task}/{pkg}.txt", "w") as f:
-            f.write(output)
-
-    return output, cost
-
-
-def prepare_batch_entry(
+def prompt_batched(
         run_id: str,
         pkg: str,
         task: str,
-        model: dict,
+        model: str,
         system_msg: str,
-        user_msg: str,
-        examples: list[tuple[str, str]] = None,
-        n: int = 1,
+        user_msgs: list[str],
         max_tokens: int = 2048,
-        entry_id: int = 0
-):
-    return {
-        "custom_id": "%s_%s_%s_%s" % (run_id, task, pkg, entry_id),
-        "method": "POST",
-        "url": "/v1/chat/completions",
-        "body": {
-            "model": model['name'],
-            "n": n,
-            "max_tokens": max_tokens,
-            "messages": prepare_messages(system_msg, user_msg, examples)
-        }
-    }
+        examples: Optional[List[Tuple[str, str]]] = None
+) -> tuple[str, float]:
 
+    """
+    Prompt the ollama server with multiple user messages in a batch.
 
-def prepare_messages(system_msg: str, user_msg: str, examples: list[tuple[str, str]] = None):
-    if examples is None:
-        examples = []
+    :param run_id: String: ID of the run
+    :param pkg: String: Name of the package
+    :param task: String: Name of the task
+    :param model: String: Model code to use for the request
+    :param system_msg: String: System message to send to the server
+    :param user_msgs: List: List of user messages to send to the server
+    :param max_tokens: Int: Maximum number of tokens to generate
+    :param examples: **UNUSED** List: List of examples to send to the server
+    :return: Tuple: Response from the server and the processing time of the request
+    """
 
-    # map the examples to the correct json format
-    examples = [({"role": "user", "content": e[0]}, {"role": "assistant", "content": e[1]}) for e in examples]
+    url = initialize()
+    responses, processing_time = send_batched_ollama_queries(url, user_msgs, model, system_msg, {'max_tokens': max_tokens})
 
-    # generate the messages list for the API call
-    messages = [{"role": "system", "content": system_msg}]
-    for example in examples:
-        messages.extend(example)
-    messages.append({"role": "user", "content": user_msg})
+    if run_id is not None and pkg is not None:
+        # log the processing time and response
+        with open(f"output/{run_id}/{model}-responses/times-{task}.csv", "a") as f:
+            for i, response in enumerate(responses):
+                f.write(f"{pkg}_{i},{processing_time}\n")
+        for i, response in enumerate(responses):
+            with open(f"output/{run_id}/{model}-responses/{task}/{pkg}_{i}.json", "w") as f:
+                f.write(json.dumps(response, indent=4))
 
-    return messages
-
-
-def run_batch(run_id, task: str):
-    load_dotenv()
-    client = OpenAI()
-
-    batch_input_file = client.files.create(
-        file=open(f"output/{run_id}/batch/{task}/batch_input.jsonl", "rb"),
-        purpose="batch"
-    )
-
-    batch_metadata = client.batches.create(
-        input_file_id=batch_input_file.id,
-        endpoint="/v1/chat/completions",
-        completion_window="24h",
-        metadata={
-            "description": "fixing headlines"
-        }
-    )
-
-    batch_metadata_json = json.dumps(json.loads(batch_metadata.model_dump_json()), indent=4)
-
-    # write the batch metadata to a file
-    with open(f"output/{run_id}/batch/{task}/batch_metadata.json", "w") as f:
-        f.write(batch_metadata_json)
-
-
-def retrieve_batch_result_entry(run_id, task: str, entry_id: str, batch_results_file: str = "batch_results.jsonl"):
-    # iterate through all lines of the batch-results.jsonl file and return the one with the matching custom_id as a dict
-    with open(f"output/{run_id}/batch/{task}/{batch_results_file}", "r") as f:
-        for line in f:
-            try:
-                entry = json.loads(line)
-            except json.JSONDecodeError:
-                print(f"Error decoding line: {line}")
-                raise json.JSONDecodeError
-            if entry['custom_id'] == entry_id:
-                # check for errors in the response
-                if entry['error'] is not None:
-                    print(f"Error for entry {entry_id}: {entry['error']}")
-                    return None, 0
-                elif entry['response']['status_code'] != 200:
-                    print(f"Bad status code for entry {entry_id}: {entry['response']['status_code']}")
-                    return None, 0
-                elif entry['response']['body']['choices'] is None or len(entry['response']['body']['choices']) == 0:
-                    print(f"No choices for entry {entry_id}")
-                    return None, 0
-                elif entry['response']['body']['choices'][0]['finish_reason'] != "stop":
-                    print(f"Finish reason not 'stop' for entry {entry_id}: {entry['response']['body']['choices'][0]['finish_reason']}")
-                    return None, 0
-                # return the content of the first choice
-                else:
-                    prompt_cost = entry['response']['body']['usage']['prompt_tokens'] * models['gpt-4o-mini']['input_price'] / 2
-                    completion_cost = entry['response']['body']['usage']['completion_tokens'] * models['gpt-4o-mini']['output_price'] / 2
-                    output = entry['response']['body']['choices'][0]['message']['content']
-
-                    return output, prompt_cost + completion_cost
-
-    print(f"Entry {entry_id} not found")
-    return None, 0
-
-
-def check_batch_status(run_id, task: str, batch_metadata_file: str = "batch_metadata.json"):
-    load_dotenv()
-    client = OpenAI()
-
-    with open(f"output/{run_id}/batch/{task}/{batch_metadata_file}", "r") as f:
-        batch_metadata = json.load(f)
-
-    batch_status = client.batches.retrieve(batch_metadata['id'])
-
-    batch_status_json = json.dumps(json.loads(batch_status.model_dump_json()), indent=4)
-
-    # write the batch status to a file
-    with open(f"output/{run_id}/batch/{task}/{batch_metadata_file}", "w") as f:
-        f.write(f"{batch_status_json}")
-
-    if batch_status.status == "completed":
-        print("Batch completed, getting results...")
-    else:
-        print("Batch not completed yet, status: %s" % batch_status.status)
-
-    return batch_status
-
-
-def get_batch_results(run_id, task: str, batch_metadata_file: str = "batch_metadata.json"):
-    load_dotenv()
-    client = OpenAI()
-
-    with open(f"output/{run_id}/batch/{task}/{batch_metadata_file}", "r") as f:
-        batch_metadata = json.load(f)
-
-    batch_results = client.files.content(batch_metadata['output_file_id']).text
-
-    with open(f"output/{run_id}/batch/{task}/batch_results.jsonl", "w") as f:
-        f.write(batch_results)
-
-    return batch_results
+    return json.dumps(responses), processing_time
