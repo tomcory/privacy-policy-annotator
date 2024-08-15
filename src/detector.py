@@ -22,12 +22,15 @@ def execute(run_id: str, pkg: str, in_folder: str, out_folder: str, use_batch: b
         if use_batch:
             output, cost = api_wrapper.retrieve_batch_result_entry(run_id, task, f"{run_id}_{task}_{pkg}_0")
         else:
+            with open('detector_system_prompt.md', 'r') as f:
+                system_message = f.read()
+
             output, cost = api_wrapper.prompt(
                 run_id=run_id,
                 pkg=pkg,
                 task=task,
                 model=model,
-                system_msg=system_msg,
+                system_msg=system_message,
                 user_msg=generate_excerpt(policy),
                 max_tokens=1
             )
