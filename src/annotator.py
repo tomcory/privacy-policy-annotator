@@ -1,4 +1,5 @@
 import json
+from platform import system
 
 from src import util, api_wrapper
 
@@ -117,13 +118,16 @@ def prepare_batch(run_id: str, pkg: str, in_folder: str):
 
     entries = []
 
+    with open('annotator_system_prompt.md', 'r') as file:
+        system_message = file.read()
+
     for index, passage in enumerate(policy):
         entry = api_wrapper.prepare_batch_entry(
             run_id=run_id,
             pkg=pkg,
             task=task,
             model=model,
-            system_msg=system_msg,
+            system_msg=system_message,
             user_msg=json.dumps(passage),
             examples=[(example_1_in, example_1_out)],
             entry_id=index
