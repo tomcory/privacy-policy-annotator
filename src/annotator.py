@@ -68,7 +68,7 @@ example_4_in = ''''''
 example_4_out = ''''''
 
 task = "annotator"
-model = api_wrapper.models['gpt-4o-mini']
+model = api_wrapper.models['llama8b']
 
 
 def execute(run_id: str, pkg: str, in_folder: str, out_folder: str, use_batch: bool = False):
@@ -79,13 +79,13 @@ def execute(run_id: str, pkg: str, in_folder: str, out_folder: str, use_batch: b
         return None
 
     output = []
-    total_cost = 0
+    total_inference_time = 0
 
     for index, passage in enumerate(policy):
         if use_batch:
-            result, cost = api_wrapper.retrieve_batch_result_entry(run_id, task, f"{run_id}_{task}_{pkg}_{index}")
+            result, inference_time = api_wrapper.retrieve_batch_result_entry(run_id, task, f"{run_id}_{task}_{pkg}_{index}")
         else:
-            result, cost = api_wrapper.prompt(
+            result, inference_time = api_wrapper.prompt(
                 run_id=run_id,
                 pkg=pkg,
                 task=task,
@@ -95,7 +95,7 @@ def execute(run_id: str, pkg: str, in_folder: str, out_folder: str, use_batch: b
                 examples=[(example_2_in, example_2_out)]
             )
 
-        total_cost += cost
+        total_inference_time += inference_time
         try:
             passage['annotations'] = json.loads(result)
         except json.JSONDecodeError:
@@ -103,10 +103,10 @@ def execute(run_id: str, pkg: str, in_folder: str, out_folder: str, use_batch: b
             raise json.JSONDecodeError
         output.append(passage)
 
-    print(f"Annotation cost: {total_cost}")
+    print(f"Annotation time: {total_inference_time}")
 
-    with open(f"output/{run_id}/gpt_responses/costs_annotator.csv", "a") as f:
-        f.write(f"{pkg},{total_cost}\n")
+    with open(f"output/{run_id}/gpt_responses/processing_times_annotator.csv", "a") as f:
+        f.write(f"{pkg},{total_inference_time}\n")
 
     util.write_to_file(f"output/{run_id}/annotated/{pkg}.json", json.dumps(output, indent=4))
 

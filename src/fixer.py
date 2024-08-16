@@ -15,7 +15,7 @@ list where each entry is on a new line formatted as "<headline>,<current tag of 
 not number the entries.'''.replace('\n', '')
 
 task = "fixer"
-model = api_wrapper.models['gpt-4o']
+model = api_wrapper.models['llama8b']
 
 
 def execute(run_id: str, pkg: str, in_folder: str, out_folder: str, use_batch: bool = False):
@@ -100,25 +100,28 @@ def identify_headlines(run_id: str, pkg: str, html: str, use_batch: bool = False
 
     if use_batch:
         print("Using batch result...")
-        output, cost = api_wrapper.retrieve_batch_result_entry(run_id, task, f"{run_id}_{task}_{pkg}_0")
+        output, inference_time = api_wrapper.retrieve_batch_result_entry(run_id, task, f"{run_id}_{task}_{pkg}_0")
     else:
-        output, cost = api_wrapper.prompt(
+        with open('fixer_system_prompt.md', 'r') as f:
+            system_message = f.read()
+
+        output, inference_time = api_wrapper.prompt(
             run_id=run_id,
             pkg=pkg,
             task=task,
             model=model,
-            system_msg=system_msg,
+            system_msg=system_message,
             user_msg=html
         )
 
     if output is None:
         output = "ERROR"
 
-    print(f"Cost: {cost}€")
+    print(f"Inference time: {inference_time} s")
 
     # write the pkg and cost to "output/costs-detector.csv"
-    with open(f"output/{run_id}/gpt_responses/costs_fixer.csv", "a") as f:
-        f.write(f"{pkg},{cost}\n")
+    with open(f"output/{run_id}/gpt_responses/inference_times_fixer.csv", "a") as f:
+        f.write(f"{pkg},{inference_time}\n")
 
     with open(f"output/{run_id}/gpt_responses/fixer/{pkg}.txt", "w") as f:
         f.write(output)

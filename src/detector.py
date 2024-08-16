@@ -9,7 +9,7 @@ system_msg = """Your task is to analyze a given text snippet and determine if th
     explanations or context in your response.""".replace('\n', '')
 
 task = "detector"
-model = api_wrapper.models['gpt-4o-mini']
+model = api_wrapper.models['llama8b']
 
 
 def execute(run_id: str, pkg: str, in_folder: str, out_folder: str, use_batch: bool = False):
@@ -20,12 +20,12 @@ def execute(run_id: str, pkg: str, in_folder: str, out_folder: str, use_batch: b
         policy = util.read_from_file(file_path)
 
         if use_batch:
-            output, cost = api_wrapper.retrieve_batch_result_entry(run_id, task, f"{run_id}_{task}_{pkg}_0")
+            output, inference_time = api_wrapper.retrieve_batch_result_entry(run_id, task, f"{run_id}_{task}_{pkg}_0")
         else:
             with open('detector_system_prompt.md', 'r') as f:
                 system_message = f.read()
 
-            output, cost = api_wrapper.prompt(
+            output, inference_time = api_wrapper.prompt(
                 run_id=run_id,
                 pkg=pkg,
                 task=task,
@@ -35,14 +35,14 @@ def execute(run_id: str, pkg: str, in_folder: str, out_folder: str, use_batch: b
                 max_tokens=1
             )
 
-        # write the pkg and cost to "output/costs-detector.csv"
-        with open(f"output/{run_id}/gpt_responses/costs_detector.csv", "a") as f:
-            f.write(f"{pkg},{cost}\n")
+        # write the pkg and inference time to "output/inference_times_detector.csv"
+        with open(f"output/{run_id}/gpt_responses/inference_times_detector.csv", "a") as f:
+            f.write(f"{pkg},{inference_time}\n")
 
         with open(f"output/{run_id}/gpt_responses/detector/{pkg}.txt", "w") as f:
             f.write(output)
 
-        print(f"Detector cost {cost} cents.")
+        print(f"Detector time {inference_time} s.")
 
         # sort the output accordingly
         if output == 'true':
