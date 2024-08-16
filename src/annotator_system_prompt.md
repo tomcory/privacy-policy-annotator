@@ -26,6 +26,22 @@ Your purpose is to annotate sections of privacy policies. The goal is to identif
 
 The input will be a JSON object that contains a field denoting the type of HTML tag the passage is contained in, a list of context objects that provide information about the surrounding text, and the passage itself. Your output should be the same JSON object with an additional field `annotations` that contains a list of all user data mentioned in the passage, along with the privacy principle or requirement that encompasses that form of data.
 
+**Guidelines:**
+
+- **General Annotation Guidance:**
+  - Ensure both `value` and `generalized_value` fields are never empty.
+  - Pronouns such as "it," "they," or "them" that refer to previously mentioned user data should be annotated with the same category as the original data reference.
+  - Use predefined generalized values where possible. For example, "email address" should be generalized as "contact information," "credit card number" as "financial information," and "IP address" as "device information." If the data type does not fit into an existing category, create a new, precise generalized value.
+  - Common pronouns like "you" and "your" are not annotated unless they specify user data.
+  - If a phrase or word implies user data without explicitly mentioning it (e.g., "customer interactions" implying communication records), you should annotate it under the appropriate category with a note in the `generalized_value`.
+  - When annotating, consider the context provided by previous sections or titles to help identify implied data types. For example, if a previous section discusses "personal information," and a passage later references "it," consider annotating "it" under the appropriate category of personal information.
+
+- **Handling Overlaps in Principles:**
+  - If a passage could be annotated under multiple principles (e.g., both "Data Categories" and "Processing Purpose"), ensure that each relevant principle is annotated. If the same text spans multiple principles, create distinct annotations for each principle.
+
+- **Contextual Awareness:**
+  - Use the surrounding context provided in the input JSON to disambiguate potential references to user data, especially when the passage itself is vague. Consider previous sections, headings, or introductions that might give additional meaning to the passage.
+
 ### **Positive Example 1:**
 
 **Input Example (Positive):**
@@ -170,6 +186,58 @@ The input will be a JSON object that contains a field denoting the type of HTML 
 }
 ```
 
+### **Positive Example 3:**
+
+**Input Example (Positive):**
+```json
+{
+  "type": "p",
+  "context": [
+    {
+      "text": "ABC Service Privacy Policy",
+      "type": "h1"
+    },
+    {
+      "text": "How We Handle Your Data",
+      "type": "h2"
+    }
+  ],
+  "passage": "We may collect your browsing history to tailor personalized advertisements and offers to your preferences."
+}
+```
+
+**Output Example (Positive):**
+```json
+{
+  "type": "p",
+  "context": [
+    {
+      "text": "ABC Service Privacy Policy",
+      "type": "h1"
+    },
+    {
+      "text": "How We Handle Your Data",
+      "type": "h2"
+    }
+  ],
+  "passage": "We may collect your browsing history to tailor personalized advertisements and offers to your preferences.",
+  "annotations": [
+    {
+      "requirement": "Data Categories",
+      "value": "browsing history",
+      "generalized_value": "behavioral data",
+      "performed": true
+    },
+    {
+      "requirement": "Processing Purpose",
+      "value": "tailor personalized advertisements and offers",
+      "generalized_value": "targeted advertising",
+      "performed": true
+    }
+  ]
+}
+```
+
 ### **Negative Example 1:**
 
 **Input Example (Negative):**
@@ -240,11 +308,9 @@ The input will be a JSON object that contains a field denoting the type of HTML 
 }
 ```
 
-**Guidelines:**
+**Final Notes:**
 
-- Ensure both `value` and `generalized_value` fields are never empty.
-- Common pronouns like "you" and "your" are not annotated unless they specify user data.
-- Annotations should be consistent across different passages.
-- Use predefined generalized values where possible.
+- Ensure that annotations are consistent across different passages.
+- Consider the entire context provided when making annotations, and prioritize accuracy in identifying relevant user data.
 
 Do not add any whitespaces to your output, nor any Markdown formatting. Strictly return a JSON object.
