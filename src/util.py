@@ -16,7 +16,7 @@ def read_from_file(file_path: str, encoding='utf-8'):
         return content
 
 
-def prepare_output(run_id: str, overwrite: bool = False):
+def prepare_output(run_id: str, model: str, overwrite: bool = False):
     if overwrite and os.path.exists('output'):
         shutil.rmtree('output')
 
@@ -38,11 +38,11 @@ def prepare_output(run_id: str, overwrite: bool = False):
         'output/%s/batch/fixer' % run_id,
         'output/%s/batch/annotator' % run_id,
         'output/%s/batch/reviewer' % run_id,
-        'output/%s/gpt_responses' % run_id,
-        'output/%s/gpt_responses/detector' % run_id,
-        'output/%s/gpt_responses/fixer' % run_id,
-        'output/%s/gpt_responses/annotator' % run_id,
-        'output/%s/gpt_responses/reviewer' % run_id
+        'output/%s/%s_responses' % (run_id, model),
+        'output/%s/%s_responses/detector' % (run_id, model),
+        'output/%s/%s_responses/fixer' % (run_id, model),
+        'output/%s/%s_responses/annotator' % (run_id, model),
+        'output/%s/%s_responses/reviewer' % (run_id, model),
     ]
 
     for path in path_list:

@@ -2,6 +2,7 @@ import json
 import os
 import sys
 import time
+import logging
 from typing import Callable
 
 from src import crawler, cleaner, detector, fixer, parser, annotator, reviewer, api_wrapper, util
@@ -51,10 +52,11 @@ def run_batch(run_id: str, task: str, in_folder: str, func: Callable[[str, str],
 
 def run_pipeline(
         run_id: str,
+        model: str,
         id_file: str = None,
         single_pkg: str = None,
         crawl_retries: int = 2,
-        skip_crawl: bool = True,
+        skip_crawl: bool = False,
         skip_clean: bool = False,
         skip_detect: bool = False,
         skip_headline_fix: bool = False,
@@ -81,7 +83,7 @@ def run_pipeline(
     ]
 
     # prepare the output folders for the given run id
-    util.prepare_output(run_id, overwrite=False)
+    util.prepare_output(run_id, model, overwrite=False)
 
     # crawl the privacy policies of the given packages if required
     if not skip_crawl:
@@ -90,6 +92,9 @@ def run_pipeline(
             crawler.crawl_list([single_pkg], out_folder, crawl_retries)
         else:
             crawler.execute(id_file, out_folder, crawl_retries)
+
+    print(f"Running pipeline for run id: {run_id} with model: {model}")
+    logging.info(f"Running pipeline for run id: {run_id} with model: {model}")
 
     # iterate over the processing steps and execute the corresponding function for each package
     for step, skip, is_batch_step, use_batch_result, func, in_folder, out_folder in processing_steps:
@@ -132,12 +137,24 @@ def main():
         idx = sys.argv.index("-run-id")
         if idx + 1 < len(sys.argv):
             run_id = sys.argv[idx + 1]
+            print(f'Running with run id: {run_id}')
         else:
             print("Error: No run id provided. Please provide a run id with the -run-id argument.", file=sys.stderr)
             sys.exit(1)
     else:
         print("Error: No run id provided. Please provide a run id with the -run-id argument.", file=sys.stderr)
         sys.exit(1)
+
+    # parse the model from the command line argument "-model". use the default model "llama8b" if not provided
+    # TODO: improve model selection so that it doesn't need to be changed in multiple files
+    if "-model" in sys.argv:
+        idx = sys.argv.index("-model")
+        if idx + 1 < len(sys.argv):
+            model = api_wrapper.models[sys.argv[idx + 1]]
+        else:
+            model = api_wrapper.models["llama70b"]
+    else:
+        model = api_wrapper.models["llama70b"]
 
     # parse the path to the file containing the package ids from the command line argument "-id-file"
     id_file = None
@@ -180,6 +197,19 @@ def main():
     batch_review = False
 
     # if no "skip-*" or "batch-*" arguments are provided, call the pipeline with the default arguments
+    print(f'Running pipeline with the arguments: ')
+    print(f'  skip_crawl: {skip_crawl}')
+    print(f'  skip_clean: {skip_clean}')
+    print(f'  skip_detect: {skip_detect}')
+    print(f'  skip_headline_fix: {skip_headline_fix}')
+    print(f'  skip_parse: {skip_parse}')
+    print(f'  skip_annotate: {skip_annotate}')
+    print(f'  skip_review: {skip_review}')
+    print(f'  batch_detect: {batch_detect}')
+    print(f'  batch_headline_fix: {batch_headline_fix}')
+    print(f'  batch_annotate: {batch_annotate}')
+    print(f'  batch_review: {batch_review}')
+
     if (not skip_crawl
             and not skip_clean
             and not skip_detect
@@ -192,11 +222,13 @@ def main():
             and not batch_annotate
             and not batch_review):
         run_pipeline(run_id=run_id,
+                     model=model,
                      id_file=id_file,
                      single_pkg=single_pkg,
                      crawl_retries=crawl_retries)
     else:
         run_pipeline(run_id=run_id,
+                     model=model,
                      id_file=id_file,
                      single_pkg=single_pkg,
                      crawl_retries=crawl_retries,

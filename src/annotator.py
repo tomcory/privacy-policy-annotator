@@ -1,4 +1,5 @@
 import json
+import os
 from platform import system
 
 from src import util, api_wrapper
@@ -68,7 +69,7 @@ example_4_in = ''''''
 example_4_out = ''''''
 
 task = "annotator"
-model = api_wrapper.models['llama8b']
+model = api_wrapper.models['llama70b']
 
 
 def execute(run_id: str, pkg: str, in_folder: str, out_folder: str, use_batch: bool = False):
@@ -85,14 +86,19 @@ def execute(run_id: str, pkg: str, in_folder: str, out_folder: str, use_batch: b
         if use_batch:
             result, inference_time = api_wrapper.retrieve_batch_result_entry(run_id, task, f"{run_id}_{task}_{pkg}_{index}")
         else:
+            with open(f'{os.path.join(os.getcwd(), "system-prompts/annotator_system_prompt.md")}', 'r') as f:
+                system_message = f.read()
+
+            # TODO: check if the outputs are actually formatted correctly as JSON
             result, inference_time = api_wrapper.prompt(
                 run_id=run_id,
                 pkg=pkg,
                 task=task,
                 model=model,
-                system_msg=system_msg,
+                system_msg=system_message,
                 user_msg=json.dumps(passage),
-                examples=[(example_2_in, example_2_out)]
+                examples=[(example_2_in, example_2_out)],
+                max_tokens=2048,
             )
 
         total_inference_time += inference_time
@@ -105,7 +111,7 @@ def execute(run_id: str, pkg: str, in_folder: str, out_folder: str, use_batch: b
 
     print(f"Annotation time: {total_inference_time}")
 
-    with open(f"output/{run_id}/gpt_responses/processing_times_annotator.csv", "a") as f:
+    with open(f"output/{run_id}/{model}_responses/processing_times_annotator.csv", "a") as f:
         f.write(f"{pkg},{total_inference_time}\n")
 
     util.write_to_file(f"output/{run_id}/annotated/{pkg}.json", json.dumps(output, indent=4))
@@ -118,7 +124,7 @@ def prepare_batch(run_id: str, pkg: str, in_folder: str):
 
     entries = []
 
-    with open('annotator_system_prompt.md', 'r') as file:
+    with open(f'{os.path.join(os.getcwd(), "system-prompts/annotator_system_prompt.md")}', 'r') as file:
         system_message = file.read()
 
     for index, passage in enumerate(policy):

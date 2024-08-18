@@ -1,3 +1,7 @@
+import os
+import ast
+import logging
+
 from bs4 import BeautifulSoup, NavigableString
 
 from src import api_wrapper, util
@@ -15,7 +19,7 @@ list where each entry is on a new line formatted as "<headline>,<current tag of 
 not number the entries.'''.replace('\n', '')
 
 task = "fixer"
-model = api_wrapper.models['llama8b']
+model = api_wrapper.models['llama70b']
 
 
 def execute(run_id: str, pkg: str, in_folder: str, out_folder: str, use_batch: bool = False):
@@ -43,6 +47,7 @@ def execute(run_id: str, pkg: str, in_folder: str, out_folder: str, use_batch: b
             # replace the element's tag with the correct one
             element.name = headline[2]
         else:
+            logging.warning(f"Element not found! Headline: {headline}")
             print(f"Element not found! Headline: {headline[0]}, Current tag: {headline[1]}, H-tag: {headline[2]}")
 
     print(f"> Fixed {len(headlines)} headlines.")
@@ -97,21 +102,24 @@ def replace_long_text_with_placeholders(soup: BeautifulSoup):
 
 
 def identify_headlines(run_id: str, pkg: str, html: str, use_batch: bool = False) -> (str, float):
+    logging.info(f"Identifying headlines for {pkg}...")
 
     if use_batch:
         print("Using batch result...")
         output, inference_time = api_wrapper.retrieve_batch_result_entry(run_id, task, f"{run_id}_{task}_{pkg}_0")
     else:
-        with open('fixer_system_prompt.md', 'r') as f:
+        with open(f'{os.path.join(os.getcwd(), "system-prompts/fixer_system_prompt.md")}', 'r') as f:
             system_message = f.read()
 
+        # TODO: figure out why the LLM sometimes outputs additional text accompanying the list
         output, inference_time = api_wrapper.prompt(
             run_id=run_id,
             pkg=pkg,
             task=task,
             model=model,
             system_msg=system_message,
-            user_msg=html
+            user_msg=html,
+            json_format=False
         )
 
     if output is None:
@@ -120,10 +128,10 @@ def identify_headlines(run_id: str, pkg: str, html: str, use_batch: bool = False
     print(f"Inference time: {inference_time} s")
 
     # write the pkg and cost to "output/costs-detector.csv"
-    with open(f"output/{run_id}/gpt_responses/inference_times_fixer.csv", "a") as f:
+    with open(f"output/{run_id}/{model}_responses/inference_times_fixer.csv", "a") as f:
         f.write(f"{pkg},{inference_time}\n")
 
-    with open(f"output/{run_id}/gpt_responses/fixer/{pkg}.txt", "w") as f:
+    with open(f"output/{run_id}/{model}_responses/fixer/{pkg}.txt", "w") as f:
         f.write(output)
 
     # parse "output" into a list of 3-tuples: (headline, current_tag, h_tag)
@@ -136,7 +144,9 @@ def identify_headlines(run_id: str, pkg: str, html: str, use_batch: bool = False
     if output == "ERROR":
         return headlines
 
-    for line in output.split("\n"):
+    output = ast.literal_eval(output)
+
+    for line in output:
         if line == "":
             continue
         try:
@@ -144,6 +154,7 @@ def identify_headlines(run_id: str, pkg: str, html: str, use_batch: bool = False
             current_tag = current_tag.strip().replace("<", "").replace(">", "")
             h_tag = h_tag.strip().replace("<", "").replace(">", "")
             headlines.append((headline, current_tag, h_tag))
+            logging.info(f"Appended new headline: {headline}, {current_tag}, {h_tag}")
             # print(f"Headline: {headline}, Current tag: {current_tag}, H-tag: {h_tag}")
         except Exception:
             print(f"Error parsing line: {line}")

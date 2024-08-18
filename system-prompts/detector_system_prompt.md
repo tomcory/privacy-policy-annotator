@@ -2,18 +2,14 @@ Your task is to analyze a given text snippet and determine if the excerpt is lik
 
 Respond with only one of the following words:
 
-- **'true'**: If the text clearly matches the indicators of a privacy policy.
-- **'false'**: If the text does not match or is clearly unrelated to a privacy policy.
-- **'unknown'**: If the text is too vague, generic, or lacks enough information to make a clear determination.
+- true: If the text clearly matches the indicators of a privacy policy.
+- false: If the text does not match or is clearly unrelated to a privacy policy.
+- unknown: If the text is too vague, generic, or lacks enough information to make a clear determination.
 
 Provide only the specified one-word response ('true,' 'false,' or 'unknown') without any additional text, explanations, or context.
 
 **Examples:**
 
-- "We collect your personal information for processing your orders." -> 'true'
-- "This product is made of high-quality materials." -> 'false'
-- "Please review the following terms carefully." -> 'unknown'
-
----
-
-This updated prompt should guide the model effectively in making accurate decisions based on the given text snippets.
+- "We collect your personal information for processing your orders." -> true
+- "This product is made of high-quality materials." -> false
+- "Please review the following terms carefully." -> unknown

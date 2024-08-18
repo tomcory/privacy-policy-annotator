@@ -1,4 +1,6 @@
+import os
 import tiktoken
+import logging
 from bs4 import BeautifulSoup
 
 from src import api_wrapper, util
@@ -9,7 +11,7 @@ system_msg = """Your task is to analyze a given text snippet and determine if th
     explanations or context in your response.""".replace('\n', '')
 
 task = "detector"
-model = api_wrapper.models['llama8b']
+model = api_wrapper.models['llama70b']
 
 
 def execute(run_id: str, pkg: str, in_folder: str, out_folder: str, use_batch: bool = False):
@@ -22,7 +24,7 @@ def execute(run_id: str, pkg: str, in_folder: str, out_folder: str, use_batch: b
         if use_batch:
             output, inference_time = api_wrapper.retrieve_batch_result_entry(run_id, task, f"{run_id}_{task}_{pkg}_0")
         else:
-            with open('detector_system_prompt.md', 'r') as f:
+            with open(f'{os.path.join(os.getcwd(), "system-prompts/detector_system_prompt.md")}', 'r') as f:
                 system_message = f.read()
 
             output, inference_time = api_wrapper.prompt(
@@ -32,14 +34,17 @@ def execute(run_id: str, pkg: str, in_folder: str, out_folder: str, use_batch: b
                 model=model,
                 system_msg=system_message,
                 user_msg=generate_excerpt(policy),
-                max_tokens=1
+                max_tokens=1,
+                json_format=False
             )
 
+        output = output.strip()
+
         # write the pkg and inference time to "output/inference_times_detector.csv"
-        with open(f"output/{run_id}/gpt_responses/inference_times_detector.csv", "a") as f:
+        with open(f"output/{run_id}/{model}_responses/inference_times_detector.csv", "a") as f:
             f.write(f"{pkg},{inference_time}\n")
 
-        with open(f"output/{run_id}/gpt_responses/detector/{pkg}.txt", "w") as f:
+        with open(f"output/{run_id}/{model}_responses/detector/{pkg}.txt", "w") as f:
             f.write(output)
 
         print(f"Detector time {inference_time} s.")
@@ -59,6 +64,7 @@ def execute(run_id: str, pkg: str, in_folder: str, out_folder: str, use_batch: b
         util.write_to_file(file_name, policy)
     except Exception as e:
         print(f"Error cleaning {pkg}: {e}")
+        logging.error(f"Error cleaning {pkg}: {e}", exc_info=True)
         util.write_to_file(f"output/{run_id}/log/failed.txt", pkg)
 
 
