@@ -13,3 +13,5 @@ Provide only the specified one-word response ('true,' 'false,' or 'unknown') wit
 - "We collect your personal information for processing your orders." -> true
 - "This product is made of high-quality materials." -> false
 - "Please review the following terms carefully." -> unknown
+
+**Do not provide any sort of explanation or justification in your response, or any other text. Only respond with the one-word response.**

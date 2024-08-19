@@ -11,7 +11,7 @@ system_msg = """Your task is to analyze a given text snippet and determine if th
     explanations or context in your response.""".replace('\n', '')
 
 task = "detector"
-model = api_wrapper.models['llama70b']
+model = api_wrapper.models[os.environ.get('DETECTOR_MODEL', 'llama8b')]
 
 
 def execute(run_id: str, pkg: str, in_folder: str, out_folder: str, use_batch: bool = False):
@@ -38,7 +38,7 @@ def execute(run_id: str, pkg: str, in_folder: str, out_folder: str, use_batch: b
                 json_format=False
             )
 
-        output = output.strip()
+        output = output.strip().lower()
 
         # write the pkg and inference time to "output/inference_times_detector.csv"
         with open(f"output/{run_id}/{model}_responses/inference_times_detector.csv", "a") as f:

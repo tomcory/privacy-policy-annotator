@@ -69,7 +69,7 @@ example_4_in = ''''''
 example_4_out = ''''''
 
 task = "annotator"
-model = api_wrapper.models['llama70b']
+model = api_wrapper.models[os.environ.get('ANNOTATOR_MODEL', 'llama8b')]
 
 
 def execute(run_id: str, pkg: str, in_folder: str, out_folder: str, use_batch: bool = False):

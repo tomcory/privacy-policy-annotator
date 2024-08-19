@@ -25,7 +25,7 @@ models = {
     'llama70b': 'llama3.1:70b',
 }
 
-TEMPERATURE = 0.7
+TEMPERATURE = 0.6
 MAX_TOKENS = 500
 TOP_P = 0.9
 TOP_K = 40

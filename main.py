@@ -7,6 +7,8 @@ from typing import Callable
 
 from src import crawler, cleaner, detector, fixer, parser, annotator, reviewer, api_wrapper, util
 
+DEFAULT_MODEL = "llama8b"
+
 
 def prepare_batch(run_id: str, task: str, in_folder: str, func: Callable[[str, str, str], list[dict]]):
     batch = []
@@ -150,11 +152,22 @@ def main():
     if "-model" in sys.argv:
         idx = sys.argv.index("-model")
         if idx + 1 < len(sys.argv):
-            model = api_wrapper.models[sys.argv[idx + 1]]
+            os.environ['DETECTOR_MODEL'] = sys.argv[idx + 1]
+            os.environ['FIXER_MODEL'] = sys.argv[idx + 1]
+            os.environ['ANNOTATOR_MODEL'] = sys.argv[idx + 1]
         else:
-            model = api_wrapper.models["llama70b"]
+            os.environ['DETECTOR_MODEL'] = DEFAULT_MODEL
+            os.environ['FIXER_MODEL'] = DEFAULT_MODEL
+            os.environ['ANNOTATOR_MODEL'] = DEFAULT_MODEL
     else:
-        model = api_wrapper.models["llama70b"]
+        os.environ['DETECTOR_MODEL'] = DEFAULT_MODEL
+        os.environ['FIXER_MODEL'] = DEFAULT_MODEL
+        os.environ['ANNOTATOR_MODEL'] = DEFAULT_MODEL
+
+    model = api_wrapper.models[os.environ.get('DETECTOR_MODEL', DEFAULT_MODEL)]
+    logging.info(f"Using {os.environ.get('DETECTOR_MODEL', DEFAULT_MODEL)} model for detector.")
+    logging.info(f"Using {os.environ.get('FIXER_MODEL', DEFAULT_MODEL)} model for fixer.")
+    logging.info(f"Using {os.environ.get('ANNOTATOR_MODEL', DEFAULT_MODEL)} model for annotator.")
 
     # parse the path to the file containing the package ids from the command line argument "-id-file"
     id_file = None

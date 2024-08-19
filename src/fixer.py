@@ -19,7 +19,7 @@ list where each entry is on a new line formatted as "<headline>,<current tag of 
 not number the entries.'''.replace('\n', '')
 
 task = "fixer"
-model = api_wrapper.models['llama70b']
+model = api_wrapper.models[os.environ.get('FIXER_MODEL', 'llama8b')]
 
 
 def execute(run_id: str, pkg: str, in_folder: str, out_folder: str, use_batch: bool = False):
@@ -42,7 +42,7 @@ def execute(run_id: str, pkg: str, in_folder: str, out_folder: str, use_batch: b
     for headline in headlines:
         # find the element in the soup that corresponds to the headline and is not a li, td or th element
         # strip the element's text content and compare it to the headline pattern
-        element = soup.find(lambda tag: tag.get_text().strip() == headline[0].strip() and tag.name not in ['li', 'td', 'th'])
+        element = soup.find(lambda tag: headline[0].strip() in tag.get_text().strip() and tag.name not in ['li', 'td', 'th'])
         if element is not None:
             # replace the element's tag with the correct one
             element.name = headline[2]
