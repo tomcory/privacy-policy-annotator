@@ -2,80 +2,10 @@ import os
 import ast
 import logging
 
+from ollama import AsyncClient
 from bs4 import BeautifulSoup, NavigableString
 
 from src import api_wrapper, util
-
-
-system_msg = '''Your task is to analyze a simplified HTML document of a privacy policy, identify headlines 
-that do not have the correct tag (e.g. <p> instead of <h2>), and determine the correct h* tag for the 
-headline. Some headlines may already have a <h*> tag, but of the wrong level (e.g. <h4> instead of <h3>; 
-determine the correct level for these headlines. To shorten the input, the content of all elements with more 
-than ten words has been replaced with "[...]"; disregard these elements. Thoroughly consider whether a given 
-HTML element is a headline, as some elements are simply short sentences, table cells or list items. Make sure 
-not to include these non-headlines! Output a list of all headlines, their current HTML tag, and the h-tag the 
-headline should have in the context of the given document (h1, h2, h3, 54, h5, h6). Format your response as a 
-list where each entry is on a new line formatted as "<headline>,<current tag of the element>,<h*-tag>". Do 
-not number the entries.'''.replace('\n', '')
-
-task = "fixer"
-model = api_wrapper.models[os.environ.get('FIXER_MODEL', 'llama8b')]
-
-
-def execute(run_id: str, pkg: str, in_folder: str, out_folder: str, use_batch: bool = False):
-    print(f">>> Fixing {pkg}...")
-    file_path = f"{in_folder}/{pkg}.html"
-
-    policy = util.read_from_file(file_path)
-    soup = BeautifulSoup(policy, 'html.parser')
-
-    print("Identifying headlines...")
-    mini_soup = replace_long_text_with_placeholders(BeautifulSoup(str(soup), 'html.parser'))
-    headlines = identify_headlines(run_id, pkg, str(mini_soup), use_batch)
-
-    if headlines is None:
-        print(f"> No headlines found for {pkg}.")
-        return soup
-
-    print("Fixing headlines...")
-
-    for headline in headlines:
-        # find the element in the soup that corresponds to the headline and is not a li, td or th element
-        # strip the element's text content and compare it to the headline pattern
-        element = soup.find(lambda tag: headline[0].strip() in tag.get_text().strip() and tag.name not in ['li', 'td', 'th'])
-        if element is not None:
-            # replace the element's tag with the correct one
-            element.name = headline[2]
-        else:
-            logging.warning(f"Element not found! Headline: {headline}")
-            print(f"Element not found! Headline: {headline[0]}, Current tag: {headline[1]}, H-tag: {headline[2]}")
-
-    print(f"> Fixed {len(headlines)} headlines.")
-
-    fixed_policy = soup.prettify()
-
-    file_name = f"{out_folder}/{pkg}.html"
-    util.write_to_file(file_name, fixed_policy)
-
-
-def prepare_batch(run_id: str, pkg: str, in_folder: str):
-    html = util.read_from_file(f"{in_folder}/{pkg}.html")
-    if html is None or html == "":
-        return None
-
-    soup = BeautifulSoup(html, 'html.parser')
-    mini_soup = replace_long_text_with_placeholders(BeautifulSoup(str(soup), 'html.parser'))
-
-    batch_entry = api_wrapper.prepare_batch_entry(
-        model=model,
-        system_msg=system_msg,
-        user_msg=str(mini_soup),
-        run_id=run_id,
-        pkg=pkg,
-        task=task
-    )
-
-    return [batch_entry]
 
 
 def replace_long_text_with_placeholders(soup: BeautifulSoup):
@@ -100,63 +30,113 @@ def replace_long_text_with_placeholders(soup: BeautifulSoup):
 
     return soup
 
+class Fixer:
+    def __init__(self, run_id: str, pkg: str, ollama_client: AsyncClient, use_batch: bool = False):
+        self.task = "fixer"
+        self.model = api_wrapper.models[os.environ.get('FIXER_MODEL', 'llama8b')]
+        self.in_folder = f"output/{run_id}/accepted"
+        self.out_folder = f"output/{run_id}/fixed"
 
-def identify_headlines(run_id: str, pkg: str, html: str, use_batch: bool = False) -> (str, float):
-    logging.info(f"Identifying headlines for {pkg}...")
+        self.run_id = run_id
+        self.pkg = pkg
+        self.ollama_client = ollama_client
+        self.use_batch = use_batch
 
-    if use_batch:
-        print("Using batch result...")
-        output, inference_time = api_wrapper.retrieve_batch_result_entry(run_id, task, f"{run_id}_{task}_{pkg}_0")
-    else:
-        with open(f'{os.path.join(os.getcwd(), "system-prompts/fixer_system_prompt.md")}', 'r') as f:
-            system_message = f.read()
+    def execute(self):
+        print(f">>> Fixing {self.pkg}...")
+        logging.info(f"Fixing {self.pkg}...")
+        file_path = f"{self.in_folder}/{self.pkg}.html"
 
-        # TODO: figure out why the LLM sometimes outputs additional text accompanying the list
-        output, inference_time = api_wrapper.prompt(
-            run_id=run_id,
-            pkg=pkg,
-            task=task,
-            model=model,
-            system_msg=system_message,
-            user_msg=html,
-            json_format=False
-        )
+        policy = util.read_from_file(file_path)
+        soup = BeautifulSoup(policy, 'html.parser')
 
-    if output is None:
-        output = "ERROR"
+        print("Identifying headlines...")
+        mini_soup = replace_long_text_with_placeholders(BeautifulSoup(str(soup), 'html.parser'))
+        headlines = self.identify_headlines(self.run_id, self.pkg, str(mini_soup), self.use_batch)
 
-    print(f"Inference time: {inference_time} s")
+        if headlines is None:
+            print(f"> No headlines found for {self.pkg}.")
+            return soup
 
-    # write the pkg and cost to "output/costs-detector.csv"
-    with open(f"output/{run_id}/{model}_responses/inference_times_fixer.csv", "a") as f:
-        f.write(f"{pkg},{inference_time}\n")
+        print("Fixing headlines...")
 
-    with open(f"output/{run_id}/{model}_responses/fixer/{pkg}.txt", "w") as f:
-        f.write(output)
+        for headline in headlines:
+            element = soup.find(lambda tag: headline[0].strip() in tag.get_text().strip() and tag.name not in ['li', 'td', 'th'])
+            if element is not None:
+                element.name = headline[2]
+            else:
+                logging.warning(f"Element not found! Headline: {headline}")
+                print(f"Element not found! Headline: {headline[0]}, Current tag: {headline[1]}, H-tag: {headline[2]}")
 
-    # parse "output" into a list of 3-tuples: (headline, current_tag, h_tag)
-    # split the string into lines and then split each line by the comma character
-    # h_tag is the last entry
-    # current_tag the second to last entry
-    # reconstruct the headline by joining the remaining entries with commas
-    headlines = []
+        print(f"> Fixed {len(headlines)} headlines.")
 
-    if output == "ERROR":
+        fixed_policy = soup.prettify()
+
+        file_name = f"{self.out_folder}/{self.pkg}.html"
+        util.write_to_file(file_name, fixed_policy)
+
+    def identify_headlines(self, run_id: str, pkg: str, html: str, use_batch: bool = False) -> (str, float):
+        logging.info(f"Identifying headlines for {pkg}...")
+
+        if use_batch:
+            print("Using batch result...")
+            output, inference_time = api_wrapper.retrieve_batch_result_entry(run_id, self.task, f"{run_id}_{self.task}_{pkg}_0")
+        else:
+            with open(f'{os.path.join(os.getcwd(), "system-prompts/fixer_system_prompt.md")}', 'r') as f:
+                system_message = f.read()
+
+            # TODO: figure out why the LLM sometimes outputs additional text accompanying the list
+            output, inference_time = api_wrapper.prompt(
+                run_id=run_id,
+                pkg=pkg,
+                task=self.task,
+                model=self.model,
+                ollama_client=self.ollama_client,
+                system_msg=system_message,
+                user_msg=html,
+                json_format=False
+            )
+
+        if output is None:
+            output = "ERROR"
+
+        print(f"Inference time: {inference_time} s")
+
+        # write the pkg and cost to "output/costs-detector.csv"
+        with open(f"output/{run_id}/{self.model}_responses/inference_times_fixer.csv", "a") as f:
+            f.write(f"{pkg},{inference_time}\n")
+
+        with open(f"output/{run_id}/{self.model}_responses/fixer/{pkg}.txt", "w") as f:
+            f.write(output)
+
+        # parse "output" into a list of 3-tuples: (headline, current_tag, h_tag)
+        # split the string into lines and then split each line by the comma character
+        # h_tag is the last entry
+        # current_tag the second to last entry
+        # reconstruct the headline by joining the remaining entries with commas
+        headlines = []
+
+        if output == "ERROR":
+            return headlines
+
+        output = ast.literal_eval(output)
+
+        for line in output:
+            if line == "":
+                continue
+            try:
+                headline, current_tag, h_tag = line.rsplit(",", 2)
+                current_tag = current_tag.strip().replace("<", "").replace(">", "")
+                h_tag = h_tag.strip().replace("<", "").replace(">", "")
+                headlines.append((headline, current_tag, h_tag))
+                logging.info(f"Appended new headline: {headline}, {current_tag}, {h_tag}")
+                # print(f"Headline: {headline}, Current tag: {current_tag}, H-tag: {h_tag}")
+            except Exception:
+                print(f"Error parsing line: {line}")
+
         return headlines
 
-    output = ast.literal_eval(output)
-
-    for line in output:
-        if line == "":
-            continue
-        try:
-            headline, current_tag, h_tag = line.rsplit(",", 2)
-            current_tag = current_tag.strip().replace("<", "").replace(">", "")
-            h_tag = h_tag.strip().replace("<", "").replace(">", "")
-            headlines.append((headline, current_tag, h_tag))
-            logging.info(f"Appended new headline: {headline}, {current_tag}, {h_tag}")
-            # print(f"Headline: {headline}, Current tag: {current_tag}, H-tag: {h_tag}")
-        except Exception:
-            print(f"Error parsing line: {line}")
-
-    return headlines
+    def skip(self):
+        print(">>> Skipping fixing %s..." % self.pkg)
+        logging.info("Skipping fixing %s..." % self.pkg)
+        util.copy_folder(self.in_folder, self.out_folder)

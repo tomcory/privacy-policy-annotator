@@ -1,4 +1,5 @@
 import re
+import logging
 import traceback
 
 import chardet
@@ -7,75 +8,7 @@ from bs4 import NavigableString, Comment, BeautifulSoup, Tag
 from src import util
 
 
-def execute(run_id: str, pkg: str, in_folder: str, out_folder: str, use_batch: bool = False):
-    print(">>> Cleaning %s..." % pkg)
-    file_path = "%s/%s.html" % (in_folder, pkg)
-
-    # Detect the encoding of the file
-    with open(file_path, 'rb') as file:
-        raw_data = file.read()
-        result = chardet.detect(raw_data)
-        encoding = result['encoding']
-
-    policy = util.read_from_file(file_path, encoding)
-    cleaned = simplify_soup(policy).prettify()
-
-    if len(cleaned) > 0:
-        util.write_to_file("%s/%s.html" % (out_folder, pkg), cleaned)
-
-
-def clean_policy(page) -> str:
-    try:
-        print('Attempting to clean the soup...')
-        policy = simplify_soup(page)
-        if policy is None:
-            print('Cleaning the soup failed.')
-            raise Exception
-
-        print('Cleaning the soup succeeded.')
-        return policy.prettify()
-
-    except Exception as e:
-        print('Error: Unknown exception %s' % e)
-        return ''
-
-
-def simplify_soup(page_source):
-    """
-        Extract the policy text from the page source using BeautifulSoup.
-
-        Args:
-            page_source (str): The HTML source of the page.
-
-        Returns:
-            BeautifulSoup: The isolated and cleaned main content of the page source or None if an error occurred.
-        """
-
-    try:
-        soup = BeautifulSoup(page_source, 'html.parser')
-        soup = remove_surrounding_structure(soup)
-        soup = unwrap_inline_elements(soup)
-        soup = replace_br_tags(soup)
-        soup = parse_pre_tags(soup)
-        soup = replace_special_characters(soup)
-        soup = remove_attributes(soup)
-        soup = concatenate_text(soup)
-        soup = wrap_nonterminal_text(soup)
-        soup = flatten_structure(soup)
-        soup = remove_empty_elements(soup)
-
-        print('Soup simplified.')
-
-        return soup
-    except Exception as e:
-        print(
-            f'An error occurred while simplifying the soup: {type(e)}.')
-        traceback.print_exc()
-        return None
-
-
 def remove_surrounding_structure(soup: BeautifulSoup):
-
     print('Removing surrounding structure...')
 
     # remove all comments
@@ -174,9 +107,7 @@ def remove_surrounding_structure(soup: BeautifulSoup):
     return soup
 
 
-def unwrap_inline_elements(
-        soup: BeautifulSoup
-):
+def unwrap_inline_elements(soup: BeautifulSoup):
     # Extended list of inline element tags to unwrap
     inline_tags = ['a', 'abbr', 'acronym', 'b', 'bdi', 'bdo', 'big', 'button', 'center',
                    'cite', 'code', 'data', 'del', 'dfn', 'em', 'font', 'i', 'img', 'input',
@@ -427,3 +358,85 @@ def close_headline_gaps(soup: BeautifulSoup, headline_tags: list[str]):
         last_tag_level = tag_level
 
     return soup
+
+
+def simplify_soup(page_source):
+    """
+        Extract the policy text from the page source using BeautifulSoup.
+
+        Args:
+            page_source (str): The HTML source of the page.
+
+        Returns:
+            BeautifulSoup: The isolated and cleaned main content of the page source or None if an error occurred.
+        """
+
+    try:
+        soup = BeautifulSoup(page_source, 'html.parser')
+        soup = remove_surrounding_structure(soup)
+        soup = unwrap_inline_elements(soup)
+        soup = replace_br_tags(soup)
+        soup = parse_pre_tags(soup)
+        soup = replace_special_characters(soup)
+        soup = remove_attributes(soup)
+        soup = concatenate_text(soup)
+        soup = wrap_nonterminal_text(soup)
+        soup = flatten_structure(soup)
+        soup = remove_empty_elements(soup)
+
+        print('Soup simplified.')
+
+        return soup
+    except Exception as e:
+        print(
+            f'An error occurred while simplifying the soup: {type(e)}.')
+        traceback.print_exc()
+        return None
+
+
+def clean_policy(page) -> str:
+    try:
+        print('Attempting to clean the soup...')
+        policy = simplify_soup(page)
+        if policy is None:
+            print('Cleaning the soup failed.')
+            raise Exception
+
+        print('Cleaning the soup succeeded.')
+        return policy.prettify()
+
+    except Exception as e:
+        print('Error: Unknown exception %s' % e)
+        return ''
+
+
+class Cleaner:
+    def __init__(self, run_id: str, pkg: str, use_batch: bool = False):
+        self.in_folder = f"output/{run_id}/original"
+        self.out_folder = f"output/{run_id}/cleaned"
+
+        self.run_id = run_id
+        self.pkg = pkg
+        self.use_batch = use_batch
+
+    def execute(self):
+        print(">>> Cleaning %s..." % self.pkg)
+        logging.info("Cleaning %s..." % self.pkg)
+        file_path = "%s/%s.html" % (self.in_folder, self.pkg)
+
+        # Detect the encoding of the file
+        with open(file_path, 'rb') as file:
+            raw_data = file.read()
+            result = chardet.detect(raw_data)
+            encoding = result['encoding']
+
+        policy = util.read_from_file(file_path, encoding)
+        cleaned = simplify_soup(policy).prettify()
+
+        if len(cleaned) > 0:
+            util.write_to_file("%s/%s.html" % (self.out_folder, self.pkg), cleaned)
+
+    def skip(self):
+        print(">>> Skipping cleaning %s..." % self.pkg)
+        logging.info("Skipping cleaning %s..." % self.pkg)
+        util.copy_folder(self.in_folder, self.out_folder)

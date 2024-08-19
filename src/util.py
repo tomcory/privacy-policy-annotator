@@ -1,6 +1,7 @@
 import json
 import os
 import shutil
+import logging
 
 
 def write_to_file(file_name: str, text: str):
@@ -61,3 +62,25 @@ def load_policy_json(run_id: str, pkg: str, task: str):
     except json.JSONDecodeError:
         print(f"The file {file_path} does not contain valid JSON.")
         return None
+
+
+def copy_folder(src: str, dest: str):
+    """
+    Copy folder at path 'src' to path 'dest'.
+
+    :param src: Source folder path
+    :param dest: Destination folder path
+    :return: None
+    """
+
+    try:
+        shutil.copytree(src, dest)
+    except FileExistsError:
+        print(f"Folder already exists at {dest}.")
+    except FileNotFoundError:
+        print(f"Folder not found at {src}.")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        raise e
+    else:
+        logging.info(f"Successfully copied folder from {src} to {dest}.")

@@ -4,8 +4,14 @@ import sys
 import time
 import logging
 from typing import Callable
+from ollama import AsyncClient
 
-from src import crawler, cleaner, detector, fixer, parser, annotator, reviewer, api_wrapper, util
+from src import crawler, api_wrapper, util
+from src.cleaner import Cleaner
+from src.detector import Detector
+from src.fixer import Fixer
+from src.parser import Parser
+from src.annotator import Annotator
 
 DEFAULT_MODEL = "llama8b"
 
@@ -55,6 +61,7 @@ def run_batch(run_id: str, task: str, in_folder: str, func: Callable[[str, str],
 def run_pipeline(
         run_id: str,
         model: str,
+        ollama_client: AsyncClient,
         id_file: str = None,
         single_pkg: str = None,
         crawl_retries: int = 2,
@@ -70,20 +77,6 @@ def run_pipeline(
         batch_annotate: bool = False,
         batch_review: bool = False):
 
-    # define the processing steps of the pipeline
-    processing_steps = [
-        ("clean", skip_clean, False, False, cleaner.execute, "original", "cleaned"),  # cleaner
-        ("detector", not batch_detect, True, False, detector.prepare_batch, "cleaned", "accepted"),  # batch detector
-        ("detect", skip_detect, False, batch_detect, detector.execute, "cleaned", "accepted"),  # detector
-        ("fixer", not batch_headline_fix, True, False, fixer.prepare_batch, "accepted", "fixed"),  # batch fixer
-        ("fix", skip_headline_fix, False, batch_headline_fix, fixer.execute, "accepted", "fixed"),  # fixer
-        ("parse", skip_parse, False, False, parser.execute, "fixed", "json"),  # parser
-        ("annotator", not batch_annotate, True, False, annotator.prepare_batch, "json", "annotated"),  # batch annotator
-        ("annotate", skip_annotate, False, batch_annotate, annotator.execute, "json", "annotated"),  # annotator
-        ("review", not batch_review, True, False, reviewer.prepare_batch, "annotated", "reviewed"),  # batch reviewer
-        ("review", skip_review, False, batch_review, reviewer.execute, "annotated", "reviewed")  # reviewer
-    ]
-
     # prepare the output folders for the given run id
     util.prepare_output(run_id, model, overwrite=False)
 
@@ -98,41 +91,54 @@ def run_pipeline(
     print(f"Running pipeline for run id: {run_id} with model: {model}")
     logging.info(f"Running pipeline for run id: {run_id} with model: {model}")
 
-    # iterate over the processing steps and execute the corresponding function for each package
-    for step, skip, is_batch_step, use_batch_result, func, in_folder, out_folder in processing_steps:
-        in_folder = f"output/{run_id}/{in_folder}"
-        out_folder = f"output/{run_id}/{out_folder}"
+    if single_pkg is not None:
+        print(f"Processing package: {single_pkg}")
+        logging.info(f"Processing package: {single_pkg}")
 
-        if not skip:
-            if single_pkg is not None:
-                if is_batch_step:
-                    run_batch(run_id, step, in_folder, func)
-                else:
-                    func(run_id, single_pkg, in_folder, out_folder, use_batch_result)
-            else:
-                if is_batch_step:
-                    run_batch(run_id, step, in_folder, func)
-                else:
-                    for filename in os.listdir(in_folder):
-                        # Ensure we are processing files only (not directories)
-                        if os.path.isfile(os.path.join(in_folder, filename)):
-                            pkg = os.path.splitext(filename)[0]
-                            try:
-                                func(run_id, pkg, in_folder, out_folder, use_batch_result)
-                            except Exception as e:
-                                with open(f"output/{run_id}/log/error.txt", 'w') as error_file:
-                                    error_file.write(f"{pkg}\n")
+        cleaner = Cleaner(run_id, single_pkg)
+        detector = Detector(run_id, single_pkg, ollama_client)
+        fixer = Fixer(run_id, single_pkg, ollama_client)
+        parser = Parser(run_id, single_pkg)
+        annotator = Annotator(run_id, single_pkg, ollama_client)
+
+        if not skip_clean:
+            cleaner.execute()
         else:
-            # copy the content of in_folder to out_folder without processing
-            for filename in os.listdir(in_folder):
-                if os.path.isfile(os.path.join(in_folder, filename)):
-                    with open(in_folder + '/' + filename, 'r') as file:
-                        content = file.read()
-                        with open(out_folder + '/' + filename, 'w') as new_file:
-                            new_file.write(content)
+            cleaner.skip()
+
+        if not skip_detect:
+            detector.execute()
+        else:
+            detector.skip()
+
+        if not skip_headline_fix:
+            fixer.execute()
+        else:
+            fixer.skip()
+
+        if not skip_parse:
+            parser.execute()
+        else:
+            parser.skip()
+
+        if not skip_annotate:
+            annotator.execute()
+        else:
+            annotator.skip()
+    else:
+        print("Processing all packages...")
+        logging.info("Processing all packages...")
+        # TODO: implement handling of multiple packages at once
+        pass
 
 
 def main():
+    logging.Formatter.converter = time.localtime
+    logging.basicConfig(
+        filename='open_source.log',
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s'
+    )
 
     # parse the run id from the command line argument "-run-id" or exit if not provided
     if "-run-id" in sys.argv:
@@ -147,8 +153,7 @@ def main():
         print("Error: No run id provided. Please provide a run id with the -run-id argument.", file=sys.stderr)
         sys.exit(1)
 
-    # parse the model from the command line argument "-model". use the default model "llama8b" if not provided
-    # TODO: improve model selection so that it doesn't need to be changed in multiple files
+    # parse the model from the command line argument "-model". use the default model if not provided
     if "-model" in sys.argv:
         idx = sys.argv.index("-model")
         if idx + 1 < len(sys.argv):
@@ -223,6 +228,8 @@ def main():
     print(f'  batch_annotate: {batch_annotate}')
     print(f'  batch_review: {batch_review}')
 
+    ollama_client = AsyncClient()
+
     if (not skip_crawl
             and not skip_clean
             and not skip_detect
@@ -236,12 +243,14 @@ def main():
             and not batch_review):
         run_pipeline(run_id=run_id,
                      model=model,
+                     ollama_client=ollama_client,
                      id_file=id_file,
                      single_pkg=single_pkg,
                      crawl_retries=crawl_retries)
     else:
         run_pipeline(run_id=run_id,
                      model=model,
+                     ollama_client=ollama_client,
                      id_file=id_file,
                      single_pkg=single_pkg,
                      crawl_retries=crawl_retries,
