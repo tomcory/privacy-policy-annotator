@@ -8,7 +8,8 @@ from typing import Dict, Optional, List, Tuple, Literal, Union
 
 models = {
     'llama3': 'llama3:instruct',
-    'llama8b': 'llama3.1',
+    'llama8b': 'llama3.1:8b-instruct-fp16',
+    'llama8b-q4': 'llama3.1:8b-instruct-q4_0',
     'gemma9b': 'gemma2',
     'mistral7b': 'mistral',
     'mistral-nemo12b': 'mistral-nemo',

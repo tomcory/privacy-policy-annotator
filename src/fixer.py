@@ -1,6 +1,7 @@
 import os
 import ast
 import logging
+import tiktoken
 
 from ollama import AsyncClient
 from bs4 import BeautifulSoup, NavigableString
@@ -52,6 +53,14 @@ class Fixer:
 
         print("Identifying headlines...")
         mini_soup = replace_long_text_with_placeholders(BeautifulSoup(str(soup), 'html.parser'))
+
+        token_count = len(tiktoken.get_encoding('cl100k_base').encode(str(mini_soup)))
+        logging.info(f"Token count for headline fixing of package \"{self.pkg}\": {token_count}")
+        if token_count > 5000:
+            self.skip()
+            logging.info("Skipping headline fixing because of high token count of policy")
+            return
+
         headlines = self.identify_headlines(self.run_id, self.pkg, str(mini_soup), self.use_batch)
 
         if headlines is None:
