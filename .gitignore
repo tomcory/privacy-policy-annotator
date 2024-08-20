@@ -5,3 +5,4 @@ venv
 output
 res
 manual_review
+*.log
