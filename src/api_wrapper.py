@@ -139,10 +139,12 @@ def prompt(
     """
 
     user_prompt = str(user_msg)
+    loop = asyncio.get_event_loop()
+
     start_time = timeit.default_timer()
 
     if not options:
-        response = asyncio.run(query_ollama(model, user_prompt, system_msg, ollama_client, output_format='json' if json_format else ''))
+        response = loop.run_until_complete(query_ollama(model, user_prompt, system_msg, ollama_client, output_format='json' if json_format else ''))
     else:
         temperature = options.get('temperature', TEMPERATURE)
         max_tokens = options.get('max_tokens', MAX_TOKENS)
@@ -151,7 +153,7 @@ def prompt(
         repeat_penalty = options.get('repeat_penalty', REPEAT_PENALTY)
         context_window = options.get('context_window', CONTEXT_WINDOW)
 
-        response = asyncio.run(query_ollama(
+        response = loop.run_until_complete(query_ollama(
             model,
             user_prompt,
             system_msg,

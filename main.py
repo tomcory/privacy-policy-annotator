@@ -153,6 +153,9 @@ def main():
         print("Error: No run id provided. Please provide a run id with the -run-id argument.", file=sys.stderr)
         sys.exit(1)
 
+    if "-debug" in sys.argv:
+        logging.getLogger().setLevel(logging.DEBUG)
+
     # parse the model from the command line argument "-model". use the default model if not provided
     if "-model" in sys.argv:
         idx = sys.argv.index("-model")

@@ -94,6 +94,7 @@ class Fixer:
                 ollama_client=self.ollama_client,
                 system_msg=system_message,
                 user_msg=html,
+                options={"max_tokens": 1024},
                 json_format=False
             )
 

@@ -5,6 +5,7 @@ from bs4 import BeautifulSoup
 from ollama import AsyncClient
 
 from src import api_wrapper, util
+from src.reviewer import system_msg
 
 
 def generate_excerpt(html: str):
@@ -56,7 +57,7 @@ class Detector:
                     ollama_client=self.ollama_client,
                     system_msg=system_message,
                     user_msg=generate_excerpt(policy),
-                    options={"max_tokens": 2048},
+                    options={"max_tokens": 1},
                     json_format=False
                 )
 
