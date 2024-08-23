@@ -308,9 +308,6 @@ The input will be a JSON object that contains a field denoting the type of HTML 
 }
 ```
 
-**Final Notes:**
-
-- Ensure that annotations are consistent across different passages.
-- Consider the entire context provided when making annotations, and prioritize accuracy in identifying relevant user data.
-
+Ensure that annotations are consistent across different passages.
+Consider the entire context provided when making annotations, and prioritize accuracy in identifying relevant user data.
 Do not add any whitespaces to your output, nor any Markdown formatting. Strictly return a JSON object.

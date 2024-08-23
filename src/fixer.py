@@ -34,7 +34,7 @@ def replace_long_text_with_placeholders(soup: BeautifulSoup):
 class Fixer:
     def __init__(self, run_id: str, pkg: str, ollama_client: AsyncClient, use_batch: bool = False):
         self.task = "fixer"
-        self.model = api_wrapper.models[os.environ.get('FIXER_MODEL', 'llama8b')]
+        self.model = api_wrapper.models[os.environ.get('LLM_MODEL', 'llama8b')]
         self.in_folder = f"output/{run_id}/accepted"
         self.out_folder = f"output/{run_id}/fixed"
 
@@ -103,9 +103,13 @@ class Fixer:
                 ollama_client=self.ollama_client,
                 system_msg=system_message,
                 user_msg=html,
-                options={"max_tokens": 1024, "num_ctx": 50000},
+                options={"max_tokens": 1024, "num_ctx": 8192},
                 json_format=False
             )
+            # remove backticks since sometimes it will try to adhere to the system prompt a little too much
+            output = output.replace("`", "")
+            # only keep the output starting at the first opening square bracket and ending at the last closing square bracket
+            output = output[output.find("[") + 1:output.rfind("]")].strip()
 
         if output is None:
             output = "ERROR"

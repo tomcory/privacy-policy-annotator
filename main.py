@@ -2,6 +2,7 @@ import json
 import os
 import sys
 import time
+import ollama
 import logging
 from typing import Callable
 from ollama import AsyncClient
@@ -156,26 +157,52 @@ def main():
     if "-debug" in sys.argv:
         logging.getLogger().setLevel(logging.DEBUG)
 
+    ollama_client = AsyncClient()
+
     # parse the model from the command line argument "-model". use the default model if not provided
     if "-model" in sys.argv:
         idx = sys.argv.index("-model")
         if idx + 1 < len(sys.argv):
-            os.environ['DETECTOR_MODEL'] = sys.argv[idx + 1]
-            os.environ['FIXER_MODEL'] = sys.argv[idx + 1]
-            os.environ['ANNOTATOR_MODEL'] = sys.argv[idx + 1]
+            selected_model = sys.argv[idx + 1]
         else:
-            os.environ['DETECTOR_MODEL'] = DEFAULT_MODEL
-            os.environ['FIXER_MODEL'] = DEFAULT_MODEL
-            os.environ['ANNOTATOR_MODEL'] = DEFAULT_MODEL
+            selected_model = DEFAULT_MODEL
     else:
-        os.environ['DETECTOR_MODEL'] = DEFAULT_MODEL
-        os.environ['FIXER_MODEL'] = DEFAULT_MODEL
-        os.environ['ANNOTATOR_MODEL'] = DEFAULT_MODEL
+        selected_model = DEFAULT_MODEL
 
-    model = api_wrapper.models[os.environ.get('DETECTOR_MODEL', DEFAULT_MODEL)]
-    logging.info(f"Using {os.environ.get('DETECTOR_MODEL', DEFAULT_MODEL)} model for detector.")
-    logging.info(f"Using {os.environ.get('FIXER_MODEL', DEFAULT_MODEL)} model for fixer.")
-    logging.info(f"Using {os.environ.get('ANNOTATOR_MODEL', DEFAULT_MODEL)} model for annotator.")
+    if selected_model not in api_wrapper.models.keys():
+        logging.error(f"Model {selected_model} not in known model list.")
+        logging.error(f"Known models: {list(api_wrapper.models.keys())}")
+        print(f"Model {selected_model} not in known model list.")
+        print(f"Please select one of the following models: {api_wrapper.models.keys()}")
+        sys.exit(1)
+    else:
+        downloaded_models = [model['name'] for model in ollama.list()['models']]
+        if api_wrapper.models[selected_model] not in downloaded_models:
+            logging.debug(f"Downloaded models: {downloaded_models}")
+            logging.warning(f"Model {selected_model} not in downloaded models. Downloading model {selected_model}...")
+            print(f"Model {selected_model} not in known model list. Downloading model...")
+            try:
+                ollama.pull(api_wrapper.models[selected_model])
+                logging.info(f"Model {api_wrapper.models[selected_model]} downloaded.")
+                print(f"Model {api_wrapper.models[selected_model]} downloaded.")
+                os.environ['LLM_MODEL'] = selected_model
+            except Exception as e:
+                logging.error(f"Error downloading model {api_wrapper.models[selected_model]}: {e}", exc_info=True)
+                print(f"Error downloading model {selected_model}: {e}")
+                logging.warning(f"Proceeding with default model {DEFAULT_MODEL}.")
+                os.environ['LLM_MODEL'] = DEFAULT_MODEL
+                print(f"Proceeding with default model {DEFAULT_MODEL}.")
+        else:
+            logging.info(f"Model {selected_model} already downloaded.")
+            logging.info(f"Using model {selected_model}.")
+            os.environ['LLM_MODEL'] = selected_model
+
+    model = api_wrapper.models[os.environ.get('LLM_MODEL', DEFAULT_MODEL)]
+    logging.info(f"Using model {model}.")
+    print(f"Using model {model}.")
+
+    # load the model into memory
+    api_wrapper.load_model(ollama_client, model)
 
     # parse the path to the file containing the package ids from the command line argument "-id-file"
     id_file = None
@@ -231,8 +258,6 @@ def main():
     print(f'  batch_annotate: {batch_annotate}')
     print(f'  batch_review: {batch_review}')
 
-    ollama_client = AsyncClient()
-
     if (not skip_crawl
             and not skip_clean
             and not skip_detect
@@ -268,6 +293,9 @@ def main():
                      batch_headline_fix=batch_headline_fix,
                      batch_annotate=batch_annotate,
                      batch_review=batch_review)
+
+    # unload the model from memory
+    api_wrapper.unload_model(ollama_client, model)
 
 
 if __name__ == '__main__':

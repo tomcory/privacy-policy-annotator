@@ -5,11 +5,17 @@ import logging
 
 
 def write_to_file(file_name: str, text: str):
+    # sanitize file name for windows
+    file_name = file_name.replace(':', '_')
+
     with open(file_name, 'w', encoding='utf-8') as file:
         file.write(text)
 
 
 def read_from_file(file_path: str, encoding='utf-8'):
+    # sanitize file path for windows
+    file_path = file_path.replace(':', '_')
+
     content = ''
     with open(file_path, 'r', encoding=encoding) as file:
         for line in file:
@@ -48,11 +54,17 @@ def prepare_output(run_id: str, model: str, overwrite: bool = False):
 
     for path in path_list:
         if not os.path.exists(path):
+            # sanitize path for windows
+            path = path.replace(':', '_')
+
             os.mkdir(path)
 
 
 def load_policy_json(run_id: str, pkg: str, task: str):
     file_path = 'output/%s/%s/%s.json' % (run_id, task, pkg)
+    # sanitize file path for windows
+    file_path = file_path.replace(':', '_')
+    
     try:
         with open(file_path, 'r') as file:
             return json.load(file)

@@ -1,4 +1,5 @@
 import csv
+import logging
 import os
 import time
 
@@ -86,6 +87,7 @@ class PageNotFoundException(Exception):
 
 
 def setup_driver(driver_timeout=10, headless=True, page_load_strategy='eager'):
+    logging.debug('Setting up Selenium WebDriver...')
     print('Setting up Selenium WebDriver...')
     options = Options()
 
@@ -103,7 +105,9 @@ def setup_driver(driver_timeout=10, headless=True, page_load_strategy='eager'):
         options.add_argument('-headless')  # use headless mode to avoid constant browser popups
     options.page_load_strategy = page_load_strategy  # allow timeouts before the page has fully loaded
 
+    logging.debug('Setting up Firefox WebDriver...')
     driver = webdriver.Firefox(options=options)
+    logging.debug('Successfully set up Firefox WebDriver.')
 
     driver.set_page_load_timeout(driver_timeout)
 

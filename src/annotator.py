@@ -10,7 +10,7 @@ from src import util, api_wrapper
 class Annotator:
     def __init__(self, run_id: str, pkg: str, ollama_client: AsyncClient, use_batch: bool = False):
         self.task = "annotator"
-        self.model = api_wrapper.models[os.environ.get('ANNOTATOR_MODEL', 'llama8b')]
+        self.model = api_wrapper.models[os.environ.get('LLM_MODEL', 'llama8b')]
         self.in_folder = f"output/{run_id}/json"
         self.out_folder = f"output/{run_id}/annotated"
 
@@ -52,7 +52,7 @@ class Annotator:
 
             total_inference_time += inference_time
             try:
-                passage['annotations'] = json.loads(result)
+                passage = json.loads(result)
             except json.JSONDecodeError:
                 print(result)
                 raise json.JSONDecodeError
@@ -63,7 +63,7 @@ class Annotator:
         with open(f"output/{self.run_id}/{self.model}_responses/processing_times_annotator.csv", "a") as f:
             f.write(f"{self.pkg},{total_inference_time}\n")
 
-        util.write_to_file(f"output/{self.run_id}/annotated/{self.pkg}.json", json.dumps(output, indent=4))
+        util.write_to_file(f"output/{self.run_id}/annotated/{self.model}.{self.pkg}.json", json.dumps(output, indent=4))
 
     def skip(self):
         print(">>> Skipping annotation for %s..." % self.pkg)

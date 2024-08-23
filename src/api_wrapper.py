@@ -8,22 +8,24 @@ from typing import Dict, Optional, List, Tuple, Literal, Union
 
 models = {
     'llama3': 'llama3:instruct',
-    'llama8b': 'llama3.1:8b-instruct-fp16',
-    'llama8b-q4': 'llama3.1:8b-instruct-q4_0',
-    'gemma9b': 'gemma2',
-    'mistral7b': 'mistral',
-    'mistral-nemo12b': 'mistral-nemo',
-    'mixtral8x7b': 'mixtral:8x7b',
+    'llama8b': 'llama3.1:latest',
+    'llama8b-instruct': 'llama3.1:8b-instruct-q4_0',
+    'llama8b-instruct-fp': 'llama3.1:8b-instruct-fp16',
+    'llama70b-instruct': 'llama3.1:70b-instruct-q3_K_L',
+    'gemma2b': 'gemma2:2b',
+    'gemma9b': 'gemma2:latest',
     'gemma27b': 'gemma2:27b',
-    'llama70b': 'llama3.1:70b',
+    'mistral7b': 'mistral:latest',
+    'mistral-nemo12b': 'mistral-nemo:latest',
+    'mixtral8x7b': 'mixtral:8x7b',
 }
 
-TEMPERATURE = 0.6
+TEMPERATURE = 0.5
 MAX_TOKENS = 500
 TOP_P = 0.9
 TOP_K = 40
 REPEAT_PENALTY = 1.1
-CONTEXT_WINDOW = 10240
+CONTEXT_WINDOW = 8192
 
 
 def process_response(response, llm_name: str, json_format: bool = True) -> Union[Dict, str]:
@@ -36,7 +38,7 @@ def process_response(response, llm_name: str, json_format: bool = True) -> Union
     :return: Parsed JSON response or empty dictionary if parsing fails
     """
     try:
-        logging.debug(f'Ouput from model {llm_name}: {response["response"]}')
+        logging.debug(f'Ouput from model {llm_name}: {response["response"].strip()}')
         if json_format:
             return json.loads(response['response'])
         else:
@@ -58,7 +60,8 @@ async def query_ollama(
         top_k: int = TOP_K,
         repeat_penalty: float = REPEAT_PENALTY,
         context_window: int = CONTEXT_WINDOW,
-        output_format: Literal['json', ''] = ''
+        output_format: Literal['json', ''] = '',
+        keep_alive: int = None
 ) -> Union[Dict, str]:
     """
     Query the ollama server with the given parameters.
@@ -74,6 +77,7 @@ async def query_ollama(
     :param repeat_penalty: Float: Repeat penalty to use for the request
     :param context_window: Int: Context window length in tokens to use for the request
     :param output_format: String: Output format to use for the request
+    :param keep_alive: Int: Keep alive value in seconds to use for the request
     :return: Dict or String: Response from the server
     """
 
@@ -95,13 +99,13 @@ async def query_ollama(
     system_prompt_token_count = len(encoding.encode(system_prompt))
 
     logging.debug(
-        f'Querying model {model_code} with:\nUser prompt: {user_prompt}\nSystem prompt: {system_prompt}\nOptions: {options}\nOutput format: {output_format if output_format else "default"}')
+        f'Querying model {model_code} with:\nUser prompt: {user_prompt}\nSystem prompt: {system_prompt[:100]}...\nOptions: {options}\nOutput format: {output_format if output_format else "default"}')
     logging.debug(f'User prompt token count: {user_prompt_token_count}')
     logging.debug(f'System prompt token count: {system_prompt_token_count}')
 
     try:
         response = process_response(
-            await ollama_client.generate(model=model_code, prompt=user_prompt, system=system_prompt, format=output_format, options=options),
+            await ollama_client.generate(model=model_code, prompt=user_prompt, system=system_prompt, format=output_format, options=options, keep_alive=keep_alive),
             llm_name=model_code,
             json_format=output_format == 'json'
         )
@@ -152,7 +156,7 @@ def prompt(
         top_p = options.get('top_p', TOP_P)
         top_k = options.get('top_k', TOP_K)
         repeat_penalty = options.get('repeat_penalty', REPEAT_PENALTY)
-        context_window = options.get('context_window', CONTEXT_WINDOW)
+        context_window = options.get('num_ctx', CONTEXT_WINDOW)
 
         response = loop.run_until_complete(query_ollama(
             model,
@@ -170,6 +174,7 @@ def prompt(
 
     end_time = timeit.default_timer()
     processing_time = end_time - start_time
+    logging.info(f'Processing time for model {model}: {processing_time}')
 
     if run_id is not None and pkg is not None:
         # log the processing time and response
@@ -182,3 +187,25 @@ def prompt(
         return json.dumps(response), processing_time
     else:
         return response, processing_time
+
+def load_model(ollama_client:AsyncClient, model: str):
+    """
+    Load the specified model by sending an empty query to the server.
+
+    :param ollama_client: AsyncClient: Ollama client to use for the request
+    :param model: String: Model code to load
+    """
+
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(query_ollama(model, "", "", ollama_client))
+
+def unload_model(ollama_client:AsyncClient, model: str):
+    """
+    Unload the specified model by sending an empty query to the server with a keep_alive value of 0.
+
+    :param ollama_client: AsyncClient: Ollama client to use for the request
+    :param model: String: Model code to unload
+    """
+
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(query_ollama(model, "", "", ollama_client, keep_alive=0))

@@ -5,7 +5,6 @@ from bs4 import BeautifulSoup
 from ollama import AsyncClient
 
 from src import api_wrapper, util
-from src.reviewer import system_msg
 
 
 def generate_excerpt(html: str):
@@ -25,7 +24,7 @@ def generate_excerpt(html: str):
 class Detector:
     def __init__(self, run_id: str, pkg: str, ollama_client: AsyncClient, use_batch: bool = False):
         self.task = "detector"
-        self.model = api_wrapper.models[os.environ.get('DETECTOR_MODEL', 'llama8b')]
+        self.model = api_wrapper.models[os.environ.get('LLM_MODEL', 'llama8b')]
         self.in_folder = f"output/{run_id}/cleaned"
         self.out_folder = f"output/{run_id}/accepted"
 
