@@ -91,8 +91,7 @@ class Fixer:
             print("Using batch result...")
             output, inference_time = api_wrapper.retrieve_batch_result_entry(run_id, self.task, f"{run_id}_{self.task}_{pkg}_0")
         else:
-            with open(f'{os.path.join(os.getcwd(), "system-prompts/fixer_system_prompt.md")}', 'r') as f:
-                system_message = f.read()
+            system_message = util.read_from_file(f'{os.path.join(os.getcwd(), "system-prompts/fixer_system_prompt.md")}')
 
             # TODO: figure out why the LLM sometimes outputs additional text accompanying the list
             output, inference_time = api_wrapper.prompt(
@@ -106,22 +105,47 @@ class Fixer:
                 options={"max_tokens": 1024, "num_ctx": 8192},
                 json_format=False
             )
-            # remove backticks since sometimes it will try to adhere to the system prompt a little too much
-            output = output.replace("`", "")
-            # only keep the output starting at the first opening square bracket and ending at the last closing square bracket
-            output = output[output.find("[") + 1:output.rfind("]")].strip()
+            try:
+                # remove backticks since sometimes it will try to adhere to the system prompt a little too much
+                output = output.replace("`", "")
+                # only keep the output starting at the first opening square bracket and ending at the last closing square bracket
+                output = output[output.find("[") + 1:output.rfind("]")].strip()
+            except SyntaxError:
+                print(f"Error parsing output of fixer: {output}")
+                logging.error(f"Error parsing output of fixer: {output}")
+                # retry once
+                output, inference_time = api_wrapper.prompt(
+                    run_id=run_id,
+                    pkg=pkg,
+                    task=self.task,
+                    model=self.model,
+                    ollama_client=self.ollama_client,
+                    system_msg=system_message,
+                    user_msg=html,
+                    options={"max_tokens": 1024, "num_ctx": 8192},
+                    json_format=False
+                )
+                try:
+                    output = output.replace("`", "")
+                    output = output[output.find("[") + 1:output.rfind("]")].strip()
+                except Exception as e:
+                    print(f"Error parsing output of fixer: {e}")
+                    logging.error(f"Error parsing output of fixer: {e}")
+                    output = None
+            except Exception as e:
+                print(f"Error in fixer: {e}")
+                logging.error(f"Error in fixer: {e}")
+                output = None
 
         if output is None:
             output = "ERROR"
 
-        print(f"Inference time: {inference_time} s")
+        print(f"Headline detection time: {inference_time} s\n")
 
         # write the pkg and cost to "output/costs-detector.csv"
-        with open(f"output/{run_id}/{self.model}_responses/inference_times_fixer.csv", "a") as f:
-            f.write(f"{pkg},{inference_time}\n")
+        util.add_to_file(f"output/{run_id}/{self.model}_responses/inference_times_fixer.csv", f"{pkg},{inference_time}\n")
 
-        with open(f"output/{run_id}/{self.model}_responses/fixer/{pkg}.txt", "w") as f:
-            f.write(output)
+        util.write_to_file(f"output/{run_id}/{self.model}_responses/fixer/{pkg}.txt", output)
 
         # parse "output" into a list of 3-tuples: (headline, current_tag, h_tag)
         # split the string into lines and then split each line by the comma character

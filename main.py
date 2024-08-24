@@ -1,9 +1,13 @@
-import json
 import os
 import sys
+import json
 import time
+import timeit
+import datetime
+
 import ollama
 import logging
+import argparse
 from typing import Callable
 from ollama import AsyncClient
 
@@ -92,15 +96,15 @@ def run_pipeline(
     print(f"Running pipeline for run id: {run_id} with model: {model}")
     logging.info(f"Running pipeline for run id: {run_id} with model: {model}")
 
-    if single_pkg is not None:
-        print(f"Processing package: {single_pkg}")
-        logging.info(f"Processing package: {single_pkg}")
+    def process_package(pkg):
+        print(f"Processing package: {pkg}")
+        logging.info(f"Processing package: {pkg}")
 
-        cleaner = Cleaner(run_id, single_pkg)
-        detector = Detector(run_id, single_pkg, ollama_client)
-        fixer = Fixer(run_id, single_pkg, ollama_client)
-        parser = Parser(run_id, single_pkg)
-        annotator = Annotator(run_id, single_pkg, ollama_client)
+        cleaner = Cleaner(run_id, pkg)
+        detector = Detector(run_id, pkg, ollama_client)
+        fixer = Fixer(run_id, pkg, ollama_client)
+        parser = Parser(run_id, pkg)
+        annotator = Annotator(run_id, pkg, ollama_client)
 
         if not skip_clean:
             cleaner.execute()
@@ -108,7 +112,11 @@ def run_pipeline(
             cleaner.skip()
 
         if not skip_detect:
-            detector.execute()
+            is_a_policy = detector.execute()
+            if not is_a_policy:
+                print(f"Package {pkg} is not a policy. Skipping further processing.")
+                logging.warning(f"Package {pkg} is not a policy. Skipping further processing.")
+                return
         else:
             detector.skip()
 
@@ -126,11 +134,20 @@ def run_pipeline(
             annotator.execute()
         else:
             annotator.skip()
+
+    if single_pkg is not None:
+        process_package(single_pkg)
     else:
         print("Processing all packages...")
         logging.info("Processing all packages...")
-        # TODO: implement handling of multiple packages at once
-        pass
+        if not os.path.exists(f"output/{run_id}/id_file.txt"):
+            logging.error(f"ID file not found for run ID {run_id}.")
+            print(f"ID file not found for run ID {run_id}.")
+            sys.exit(1)
+        id_file = f"output/{run_id}/id_file.txt"
+        with open(id_file, 'r') as file:
+            for line in file:
+                process_package(line.strip())
 
 
 def main():
@@ -141,161 +158,138 @@ def main():
         format='%(asctime)s - %(levelname)s - %(message)s'
     )
 
-    # parse the run id from the command line argument "-run-id" or exit if not provided
-    if "-run-id" in sys.argv:
-        idx = sys.argv.index("-run-id")
-        if idx + 1 < len(sys.argv):
-            run_id = sys.argv[idx + 1]
-            print(f'Running with run id: {run_id}')
-        else:
-            print("Error: No run id provided. Please provide a run id with the -run-id argument.", file=sys.stderr)
-            sys.exit(1)
-    else:
-        print("Error: No run id provided. Please provide a run id with the -run-id argument.", file=sys.stderr)
-        sys.exit(1)
+    parser = argparse.ArgumentParser(description="Run the pipeline with specified parameters.")
+    parser.add_argument("-help", action="help", help="Show this help message and exit")
+    parser.add_argument("-run-id", required=True, help="Run ID for the pipeline")
+    parser.add_argument("-model", default=DEFAULT_MODEL, choices=[model_name for model_name in api_wrapper.models.keys()],
+                        help="Model to use for the pipeline")
+    parser.add_argument("-id-file", action="store_true", help="Toggle use of an ID file for multiple packages to process")
+    parser.add_argument("-pkg", help="Single package to process")
+    parser.add_argument("-crawl-retries", type=int, default=2, help="Number of crawl retries")
+    parser.add_argument("-debug", action="store_true", help="Enable debug logging")
+    parser.add_argument("-no-crawl", action="store_true", help="Skip the crawl step")
+    parser.add_argument("-no-clean", action="store_true", help="Skip the clean step")
+    parser.add_argument("-no-detect", action="store_true", help="Skip the detect step")
+    parser.add_argument("-no-headline-fix", action="store_true", help="Skip the headline fix step")
+    parser.add_argument("-no-parse", action="store_true", help="Skip the parse step")
+    parser.add_argument("-no-annotate", action="store_true", help="Skip the annotate step")
+    parser.add_argument("-no-review", action="store_true", help="Skip the review step")
+    parser.add_argument("-batch-detect", action="store_true", help="Run detect step in batch mode")
+    parser.add_argument("-batch-headline-fix", action="store_true", help="Run headline fix step in batch mode")
+    parser.add_argument("-batch-annotate", action="store_true", help="Run annotate step in batch mode")
+    parser.add_argument("-batch-review", action="store_true", help="Run review step in batch mode")
+    parser.add_argument("-model-file", action="store_true", help="Run pipeline for multiple models listed in models.txt")
 
-    if "-debug" in sys.argv:
+    args = parser.parse_args()
+
+    if args.debug:
         logging.getLogger().setLevel(logging.DEBUG)
+
+    if args.pkg and args.id_file:
+        parser.error("The -id-file option cannot be used with the -pkg option.")
 
     ollama_client = AsyncClient()
 
-    # parse the model from the command line argument "-model". use the default model if not provided
-    if "-model" in sys.argv:
-        idx = sys.argv.index("-model")
-        if idx + 1 < len(sys.argv):
-            selected_model = sys.argv[idx + 1]
+    if args.model_file:
+        models_file_path = f"output/{args.run_id}/models.txt"
+        if not os.path.exists(models_file_path):
+            logging.error(f"Models file not found at {models_file_path}.")
+            print(f"Models file not found at {models_file_path}.")
+            sys.exit(1)
+        file_content = util.read_from_file(models_file_path)
+        models = [model_name.strip() for model_name in file_content.splitlines()]
+        # remove empty lines
+        models = list(filter(None, models))
+    else:
+        models = [args.model]
+
+    for model in models:
+        if model not in api_wrapper.models.keys():
+            logging.error(f"Model {model} not in known model list.")
+            logging.error(f"Known models: {list(api_wrapper.models.keys())}")
+            print(f"Model {model} not in known model list.")
+            print(f"Please select one of the following models: {api_wrapper.models.keys()}")
+            continue
         else:
-            selected_model = DEFAULT_MODEL
-    else:
-        selected_model = DEFAULT_MODEL
+            downloaded_models = [model['name'] for model in ollama.list()['models']]
+            if api_wrapper.models[model] not in downloaded_models:
+                logging.debug(f"Downloaded models: {downloaded_models}")
+                logging.warning(f"Model {model} not in downloaded models. Downloading model {model}...")
+                print(f"Model {model} not in known model list. Downloading model...")
+                try:
+                    ollama.pull(api_wrapper.models[model])
+                    logging.info(f"Model {api_wrapper.models[model]} downloaded.")
+                    print(f"Model {api_wrapper.models[model]} downloaded.")
+                    os.environ['LLM_MODEL'] = model
+                except Exception as e:
+                    logging.error(f"Error downloading model {api_wrapper.models[model]}: {e}", exc_info=True)
+                    print(f"Error downloading model {model}: {e}")
+                    logging.warning(f"Proceeding with default model {DEFAULT_MODEL}.")
+                    os.environ['LLM_MODEL'] = DEFAULT_MODEL
+                    print(f"Proceeding with default model {DEFAULT_MODEL}.")
+            else:
+                logging.info(f"Model {model} already downloaded.")
+                logging.info(f"Using model {model}.")
+                os.environ['LLM_MODEL'] = model
 
-    if selected_model not in api_wrapper.models.keys():
-        logging.error(f"Model {selected_model} not in known model list.")
-        logging.error(f"Known models: {list(api_wrapper.models.keys())}")
-        print(f"Model {selected_model} not in known model list.")
-        print(f"Please select one of the following models: {api_wrapper.models.keys()}")
-        sys.exit(1)
-    else:
-        downloaded_models = [model['name'] for model in ollama.list()['models']]
-        if api_wrapper.models[selected_model] not in downloaded_models:
-            logging.debug(f"Downloaded models: {downloaded_models}")
-            logging.warning(f"Model {selected_model} not in downloaded models. Downloading model {selected_model}...")
-            print(f"Model {selected_model} not in known model list. Downloading model...")
-            try:
-                ollama.pull(api_wrapper.models[selected_model])
-                logging.info(f"Model {api_wrapper.models[selected_model]} downloaded.")
-                print(f"Model {api_wrapper.models[selected_model]} downloaded.")
-                os.environ['LLM_MODEL'] = selected_model
-            except Exception as e:
-                logging.error(f"Error downloading model {api_wrapper.models[selected_model]}: {e}", exc_info=True)
-                print(f"Error downloading model {selected_model}: {e}")
-                logging.warning(f"Proceeding with default model {DEFAULT_MODEL}.")
-                os.environ['LLM_MODEL'] = DEFAULT_MODEL
-                print(f"Proceeding with default model {DEFAULT_MODEL}.")
-        else:
-            logging.info(f"Model {selected_model} already downloaded.")
-            logging.info(f"Using model {selected_model}.")
-            os.environ['LLM_MODEL'] = selected_model
+        model_code = api_wrapper.models[os.environ.get('LLM_MODEL', DEFAULT_MODEL)]
+        logging.info(f"Using model {model_code}.")
+        print(f"Using model {model_code}.")
 
-    model = api_wrapper.models[os.environ.get('LLM_MODEL', DEFAULT_MODEL)]
-    logging.info(f"Using model {model}.")
-    print(f"Using model {model}.")
+        api_wrapper.load_model(ollama_client, model_code)
 
-    # load the model into memory
-    api_wrapper.load_model(ollama_client, model)
+        print(f'Running pipeline with the arguments: ')
+        print(f'  skip_crawl: {args.no_crawl}')
+        print(f'  skip_clean: {args.no_clean}')
+        print(f'  skip_detect: {args.no_detect}')
+        print(f'  skip_headline_fix: {args.no_headline_fix}')
+        print(f'  skip_parse: {args.no_parse}')
+        print(f'  skip_annotate: {args.no_annotate}')
+        print(f'  skip_review: {args.no_review}')
+        print(f'  batch_detect: {args.batch_detect}')
+        print(f'  batch_headline_fix: {args.batch_headline_fix}')
+        print(f'  batch_annotate: {args.batch_annotate}')
+        print(f'  batch_review: {args.batch_review}')
 
-    # parse the path to the file containing the package ids from the command line argument "-id-file"
-    id_file = None
-    if "-id-file" in sys.argv:
-        idx = sys.argv.index("-id-file")
-        if idx + 1 < len(sys.argv):
-            id_file = sys.argv[idx + 1]
+        skip_steps = any([
+            args.no_crawl, args.no_clean, args.no_detect, args.no_headline_fix,
+            args.no_parse, args.no_annotate, args.no_review,
+            args.batch_detect, args.batch_headline_fix, args.batch_annotate, args.batch_review
+        ])
 
-    # parse the single package from the command line argument "-pkg"
-    single_pkg = None
-    if "-pkg" in sys.argv:
-        idx = sys.argv.index("-pkg")
-        if idx + 1 < len(sys.argv):
-            single_pkg = sys.argv[idx + 1]
+        start_time = timeit.default_timer()
+        try:
+            run_pipeline(
+                run_id=args.run_id,
+                model=model_code,
+                ollama_client=ollama_client,
+                id_file=args.id_file,
+                single_pkg=args.pkg,
+                crawl_retries=args.crawl_retries,
+                skip_crawl=args.no_crawl if skip_steps else False,
+                skip_clean=args.no_clean if skip_steps else False,
+                skip_detect=args.no_detect if skip_steps else False,
+                skip_headline_fix=args.no_headline_fix if skip_steps else False,
+                skip_parse=args.no_parse if skip_steps else False,
+                skip_annotate=args.no_annotate if skip_steps else False,
+                skip_review=args.no_review if skip_steps else False,
+                batch_detect=args.batch_detect if skip_steps else False,
+                batch_headline_fix=args.batch_headline_fix if skip_steps else False,
+                batch_annotate=args.batch_annotate if skip_steps else False,
+                batch_review=args.batch_review if skip_steps else False
+            )
+            end_time = timeit.default_timer()
+            logging.info(f"\n\nPipeline completed in {datetime.timedelta(seconds=end_time - start_time)}")
+            print(f"\n\nPipeline completed in {datetime.timedelta(seconds=end_time - start_time)}")
+        except Exception as e:
+            logging.error(f"Error running pipeline: {e}", exc_info=True)
+            print(f"Error running pipeline: {e}")
+            end_time = timeit.default_timer()
+            logging.info(f"\n\nPipeline failed after {datetime.timedelta(seconds=end_time - start_time)}")
+            print(f"\n\nPipeline failed after {datetime.timedelta(seconds=end_time - start_time)}")
+            raise e
 
-    # parse the number of crawl retries from the command line argument "-crawl-retries"
-    crawl_retries = 2
-    if "-crawl-retries" in sys.argv:
-        idx = sys.argv.index("-crawl-retries")
-        if idx + 1 < len(sys.argv):
-            crawl_retries = int(sys.argv[idx + 1])
-
-    # parse command line args that indicate which steps to skip
-    skip_crawl = "-no-crawl" in sys.argv
-    skip_clean = "-no-clean" in sys.argv
-    skip_detect = "-no-detect" in sys.argv
-    skip_headline_fix = "-no-headline-fix" in sys.argv
-    skip_parse = "-no-parse" in sys.argv
-    skip_annotate = "-no-annotate" in sys.argv
-    skip_review = "-no-review" in sys.argv
-
-    # parse command line args that indicate which LLM-reliant steps to run in batch mode
-    # batch_detect = "-batch-detect" in sys.argv
-    # batch_headline_fix = "-batch-headline-fix" in sys.argv
-    # batch_annotate = "-batch-annotate" in sys.argv
-    # batch_review = "-batch-review" in sys.argv
-    batch_detect = False
-    batch_headline_fix = False
-    batch_annotate = False
-    batch_review = False
-
-    # if no "skip-*" or "batch-*" arguments are provided, call the pipeline with the default arguments
-    print(f'Running pipeline with the arguments: ')
-    print(f'  skip_crawl: {skip_crawl}')
-    print(f'  skip_clean: {skip_clean}')
-    print(f'  skip_detect: {skip_detect}')
-    print(f'  skip_headline_fix: {skip_headline_fix}')
-    print(f'  skip_parse: {skip_parse}')
-    print(f'  skip_annotate: {skip_annotate}')
-    print(f'  skip_review: {skip_review}')
-    print(f'  batch_detect: {batch_detect}')
-    print(f'  batch_headline_fix: {batch_headline_fix}')
-    print(f'  batch_annotate: {batch_annotate}')
-    print(f'  batch_review: {batch_review}')
-
-    if (not skip_crawl
-            and not skip_clean
-            and not skip_detect
-            and not skip_headline_fix
-            and not skip_parse
-            and not skip_annotate
-            and not skip_review
-            and not batch_detect
-            and not batch_headline_fix
-            and not batch_annotate
-            and not batch_review):
-        run_pipeline(run_id=run_id,
-                     model=model,
-                     ollama_client=ollama_client,
-                     id_file=id_file,
-                     single_pkg=single_pkg,
-                     crawl_retries=crawl_retries)
-    else:
-        run_pipeline(run_id=run_id,
-                     model=model,
-                     ollama_client=ollama_client,
-                     id_file=id_file,
-                     single_pkg=single_pkg,
-                     crawl_retries=crawl_retries,
-                     skip_crawl=skip_crawl,
-                     skip_clean=skip_clean,
-                     skip_detect=skip_detect,
-                     skip_headline_fix=skip_headline_fix,
-                     skip_parse=skip_parse,
-                     skip_annotate=skip_annotate,
-                     skip_review=skip_review,
-                     batch_detect=batch_detect,
-                     batch_headline_fix=batch_headline_fix,
-                     batch_annotate=batch_annotate,
-                     batch_review=batch_review)
-
-    # unload the model from memory
-    api_wrapper.unload_model(ollama_client, model)
+        api_wrapper.unload_model(ollama_client, model_code)
 
 
 if __name__ == '__main__':

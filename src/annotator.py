@@ -34,8 +34,7 @@ class Annotator:
             if self.use_batch:
                 result, inference_time = api_wrapper.retrieve_batch_result_entry(self.run_id, self.task, f"{self.run_id}_{self.task}_{self.pkg}_{index}")
             else:
-                with open(f'{os.path.join(os.getcwd(), "system-prompts/annotator_system_prompt.md")}', 'r') as f:
-                    system_message = f.read()
+                system_message = util.read_from_file(f'{os.path.join(os.getcwd(), "system-prompts/annotator_system_prompt.md")}')
 
                 # TODO: check if the outputs are actually formatted correctly as JSON (sometimes whitespaces seem to be contained in the output)
                 result, inference_time = api_wrapper.prompt(
@@ -50,6 +49,21 @@ class Annotator:
                     json_format=True
                 )
 
+                # retry once if the result JSON does not contain the key 'annotations'
+                if 'annotations' not in result:
+                    logging.warning(f"Retrying annotation for {self.pkg} due to missing 'annotations' key in result.")
+                    result, inference_time = api_wrapper.prompt(
+                        run_id=self.run_id,
+                        pkg=self.pkg,
+                        task=self.task,
+                        model=self.model,
+                        ollama_client=self.ollama_client,
+                        system_msg=system_message,
+                        user_msg=json.dumps(passage),
+                        options={"max_tokens": 2048},
+                        json_format=True
+                    )
+
             total_inference_time += inference_time
             try:
                 passage = json.loads(result)
@@ -58,10 +72,9 @@ class Annotator:
                 raise json.JSONDecodeError
             output.append(passage)
 
-        print(f"Annotation time: {total_inference_time}")
+        print(f"Annotation time: {total_inference_time} s\n")
 
-        with open(f"output/{self.run_id}/{self.model}_responses/processing_times_annotator.csv", "a") as f:
-            f.write(f"{self.pkg},{total_inference_time}\n")
+        util.add_to_file(f"output/{self.run_id}/{self.model}_responses/processing_times_annotator.csv", f"{self.pkg},{total_inference_time}\n")
 
         util.write_to_file(f"output/{self.run_id}/annotated/{self.model}.{self.pkg}.json", json.dumps(output, indent=4))
 

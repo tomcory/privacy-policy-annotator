@@ -33,7 +33,7 @@ class Detector:
         self.ollama_client = ollama_client
         self.use_batch = use_batch
 
-    def execute(self):
+    def execute(self) -> bool:
         print(f">>> Detecting whether {self.pkg} is a policy...")
         logging.info(f"Detecting whether {self.pkg} is a policy...")
 
@@ -45,8 +45,7 @@ class Detector:
             if self.use_batch:
                 output, inference_time = api_wrapper.retrieve_batch_result_entry(self.run_id, self.task, f"{self.run_id}_{self.task}_{self.pkg}_0")
             else:
-                with open(f'{os.path.join(os.getcwd(), "system-prompts/detector_system_prompt.md")}', 'r') as f:
-                    system_message = f.read()
+                system_message = util.read_from_file(f'{os.path.join(os.getcwd(), "system-prompts/detector_system_prompt.md")}')
 
                 output, inference_time = api_wrapper.prompt(
                     run_id=self.run_id,
@@ -63,13 +62,11 @@ class Detector:
             output = output.strip().lower()
 
             # write the pkg and inference time to "output/inference_times_detector.csv"
-            with open(f"output/{self.run_id}/{self.model}_responses/inference_times_detector.csv", "a") as f:
-                f.write(f"{self.pkg},{inference_time}\n")
+            util.add_to_file(f"output/{self.run_id}/{self.model}_responses/inference_times_detector.csv", f"{self.pkg},{inference_time}\n")
 
-            with open(f"output/{self.run_id}/{self.model}_responses/detector/{self.pkg}.txt", "w") as f:
-                f.write(output)
+            util.write_to_file(f"output/{self.run_id}/{self.model}_responses/detector/{self.pkg}.txt", output)
 
-            print(f"Detector time {inference_time} s.")
+            print(f"Detector time {inference_time} s\n")
 
             # sort the output accordingly
             if output == 'true':
@@ -84,10 +81,14 @@ class Detector:
 
             file_name = f"output/{self.run_id}/{folder}/{self.pkg}.html"
             util.write_to_file(file_name, policy)
+
+            return output == 'true'
         except Exception as e:
             print(f"Error cleaning {self.pkg}: {e}")
             logging.error(f"Error cleaning {self.pkg}: {e}", exc_info=True)
             util.write_to_file(f"output/{self.run_id}/log/failed.txt", self.pkg)
+
+            return False
 
     def skip(self):
         print(">>> Skipping headline detection for %s..." % self.pkg)

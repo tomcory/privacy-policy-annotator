@@ -27,6 +27,9 @@ def execute(id_file: str, out_folder: str, crawl_retries: int):
 
 
 def fetch_ids_in_file(id_file: str):
+    # sanitize path for windows
+    id_file = id_file.replace(':', '_')
+
     pkgs = []
     with open(id_file, 'r') as file:
         for line in file:
@@ -35,6 +38,9 @@ def fetch_ids_in_file(id_file: str):
 
 
 def fetch_ids_in_csv(id_file: str):
+    # sanitize path for windows
+    id_file = id_file.replace(':', '_')
+
     pkgs = []
     with open(id_file, 'r') as file:
         reader = csv.reader(file)

@@ -2,6 +2,19 @@ import json
 import os
 import shutil
 import logging
+import chardet
+
+
+def detect_encoding(file_name: str) -> str:
+    # sanitize file name for windows
+    file_name = file_name.replace(':', '_')
+
+    with open(file_name, 'rb') as file:
+        raw_data = file.read()
+        result = chardet.detect(raw_data)
+        encoding = result['encoding']
+
+    return encoding
 
 
 def write_to_file(file_name: str, text: str):
@@ -9,6 +22,14 @@ def write_to_file(file_name: str, text: str):
     file_name = file_name.replace(':', '_')
 
     with open(file_name, 'w', encoding='utf-8') as file:
+        file.write(text)
+
+
+def add_to_file(file_name: str, text: str):
+    # sanitize file name for windows
+    file_name = file_name.replace(':', '_')
+
+    with open(file_name, 'a', encoding='utf-8') as file:
         file.write(text)
 
 
@@ -52,11 +73,11 @@ def prepare_output(run_id: str, model: str, overwrite: bool = False):
         'output/%s/%s_responses/reviewer' % (run_id, model),
     ]
 
+    # sanitize paths for windows
+    path_list = [path.replace(':', '_') for path in path_list]
+
     for path in path_list:
         if not os.path.exists(path):
-            # sanitize path for windows
-            path = path.replace(':', '_')
-
             os.mkdir(path)
 
 

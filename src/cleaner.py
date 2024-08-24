@@ -2,9 +2,7 @@ import re
 import logging
 import traceback
 
-import chardet
 from bs4 import NavigableString, Comment, BeautifulSoup, Tag
-
 from src import util
 
 
@@ -425,10 +423,7 @@ class Cleaner:
         file_path = "%s/%s.html" % (self.in_folder, self.pkg)
 
         # Detect the encoding of the file
-        with open(file_path, 'rb') as file:
-            raw_data = file.read()
-            result = chardet.detect(raw_data)
-            encoding = result['encoding']
+        encoding = util.detect_encoding(file_path)
 
         policy = util.read_from_file(file_path, encoding)
         cleaned = simplify_soup(policy).prettify()

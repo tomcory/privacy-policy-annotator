@@ -3,6 +3,7 @@ import timeit
 import asyncio
 import logging
 import tiktoken
+from src import util
 from ollama import AsyncClient, Options
 from typing import Dict, Optional, List, Tuple, Literal, Union
 
@@ -178,10 +179,8 @@ def prompt(
 
     if run_id is not None and pkg is not None:
         # log the processing time and response
-        with open(f"output/{run_id}/{model}_responses/times-{task}.csv", "a") as f:
-            f.write(f"{pkg},{processing_time}\n")
-        with open(f"output/{run_id}/{model}_responses/{task}/{pkg}.json", "w") as f:
-            f.write(json.dumps(response, indent=4))
+        util.add_to_file(f"output/{run_id}/{model}_responses/times-{task}.csv", f"{pkg},{processing_time}\n")
+        util.write_to_file(f"output/{run_id}/{model}_responses/{task}/{pkg}.json", json.dumps(response, indent=4))
 
     if json_format:
         return json.dumps(response), processing_time
@@ -199,7 +198,7 @@ def load_model(ollama_client:AsyncClient, model: str):
     loop = asyncio.get_event_loop()
     loop.run_until_complete(query_ollama(model, "", "", ollama_client))
 
-def unload_model(ollama_client:AsyncClient, model: str):
+def unload_model(ollama_client: AsyncClient, model: str):
     """
     Unload the specified model by sending an empty query to the server with a keep_alive value of 0.
 
