@@ -93,4 +93,4 @@ class Detector:
     def skip(self):
         print(">>> Skipping headline detection for %s..." % self.pkg)
         logging.info("Skipping headline detection for %s..." % self.pkg)
-        util.copy_folder(self.in_folder, self.out_folder)
+        util.copy_file(f"{self.in_folder}/{self.pkg}.html", f"{self.out_folder}/{self.pkg}.html")

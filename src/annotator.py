@@ -81,4 +81,4 @@ class Annotator:
     def skip(self):
         print(">>> Skipping annotation for %s..." % self.pkg)
         logging.info("Skipping annotation for %s..." % self.pkg)
-        util.copy_folder(self.in_folder, self.out_folder)
+        util.copy_file(f"{self.in_folder}/{self.pkg}.json", f"{self.out_folder}/{self.pkg}.json")

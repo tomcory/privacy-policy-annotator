@@ -117,3 +117,25 @@ def copy_folder(src: str, dest: str):
         raise e
     else:
         logging.info(f"Successfully copied folder from {src} to {dest}.")
+
+
+def copy_file(src: str, dest: str):
+    """
+    Copy file at path 'src' to path 'dest'.
+
+    :param src: Source file path
+    :param dest: Destination file path
+    :return: None
+    """
+
+    try:
+        shutil.copy(src, dest)
+    except FileExistsError:
+        print(f"File already exists at {dest}.")
+    except FileNotFoundError:
+        print(f"File not found at {src}.")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        raise e
+    else:
+        logging.info(f"Successfully copied file from {src} to {dest}.")

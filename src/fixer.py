@@ -157,7 +157,12 @@ class Fixer:
         if output == "ERROR":
             return headlines
 
-        output = ast.literal_eval(output)
+        try:
+            output = ast.literal_eval(output)
+        except Exception as e:
+            print(f"Error parsing output of fixer: {e}")
+            logging.error(f"Error parsing output of fixer: {e}", exc_info=True)
+            return headlines
 
         for line in output:
             if line == "":
@@ -177,4 +182,4 @@ class Fixer:
     def skip(self):
         print(">>> Skipping fixing %s..." % self.pkg)
         logging.info("Skipping fixing %s..." % self.pkg)
-        util.copy_folder(self.in_folder, self.out_folder)
+        util.copy_file(f"{self.in_folder}/{self.pkg}.html", f"{self.out_folder}/{self.pkg}.html")

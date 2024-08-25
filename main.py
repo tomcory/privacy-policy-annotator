@@ -114,7 +114,7 @@ def run_pipeline(
         if not skip_detect:
             is_a_policy = detector.execute()
             if not is_a_policy:
-                print(f"Package {pkg} is not a policy. Skipping further processing.")
+                print(f"Package {pkg} is not a policy. Skipping further processing.\n")
                 logging.warning(f"Package {pkg} is not a policy. Skipping further processing.")
                 return
         else:
@@ -155,8 +155,9 @@ def main():
     logging.basicConfig(
         filename='open_source.log',
         level=logging.INFO,
-        format='%(asctime)s - %(levelname)s - %(message)s'
+        format='%(asctime)s - %(levelname)s - %(name)s - %(module)s - %(message)s'
     )
+    logging.getLogger('httpx').setLevel(logging.DEBUG)
 
     parser = argparse.ArgumentParser(description="Run the pipeline with specified parameters.")
     parser.add_argument("-help", action="help", help="Show this help message and exit")
