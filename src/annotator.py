@@ -78,6 +78,43 @@ class Annotator:
 
         util.write_to_file(f"output/{self.run_id}/annotated/{self.model}.{self.pkg}.json", json.dumps(output, indent=4))
 
+    def execute_batched(self):
+        print(f"Annotating {self.pkg} in batch mode...")
+        logging.info(f"Annotating {self.pkg} in batch mode...")
+
+        policy = util.load_policy_json(self.run_id, self.pkg, 'json')
+        if policy is None:
+            return None
+
+        system_message = util.read_from_file(f'{os.path.join(os.getcwd(), "system-prompts/annotator_system_prompt.md")}')
+        user_msgs = [json.dumps(passage) for passage in policy]
+
+        result, total_inference_time = api_wrapper.prompt_batched(
+            run_id=self.run_id,
+            pkg=self.pkg,
+            task=self.task,
+            model=self.model,
+            ollama_client=self.ollama_client,
+            system_msg=system_message,
+            user_msgs=user_msgs,
+            options={"max_tokens": 2048},
+            json_format=True
+        )
+
+        output = []
+        for res in result:
+            try:
+                passage = json.loads(res)
+            except json.JSONDecodeError:
+                print(res)
+                raise json.JSONDecodeError
+            output.append(passage)
+
+        print(f"Annotation time: {total_inference_time} s\n")
+
+        util.add_to_file(f"output/{self.run_id}/{self.model}_responses/processing_times_annotator.csv", f"{self.pkg},{total_inference_time}\n")
+        util.write_to_file(f"output/{self.run_id}/annotated/{self.model}.{self.pkg}.json", json.dumps(output, indent=4))
+
     def skip(self):
         print(">>> Skipping annotation for %s..." % self.pkg)
         logging.info("Skipping annotation for %s..." % self.pkg)

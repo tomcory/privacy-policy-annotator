@@ -6,3 +6,6 @@ output
 res
 manual_review
 *.log
+MAPP_Corpus
+OPP-115
+fasttext_dataset

@@ -131,7 +131,10 @@ def run_pipeline(
             parser.skip()
 
         if not skip_annotate:
-            annotator.execute()
+            if batch_annotate:
+                annotator.execute_batched()
+            else:
+                annotator.execute()
         else:
             annotator.skip()
 
