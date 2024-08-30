@@ -5,3 +5,7 @@ selenium~=4.16.0
 python-dotenv~=1.0.0
 openai~=1.39.0
 ollama~=0.3.1
+nltk~=3.9.1
+numpy~=1.26.4
+gensim~=4.3.3
+scipy~=1.13.1
