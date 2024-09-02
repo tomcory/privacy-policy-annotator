@@ -9,19 +9,19 @@ from typing import Dict, Optional, List, Tuple, Literal, Union
 
 models = {
     'llama3': 'llama3:instruct',
-    'llama8b': 'llama3.1:latest',
-    'llama8b-instruct': 'llama3.1:8b-instruct-q4_0',
-    'llama8b-instruct-fp': 'llama3.1:8b-instruct-fp16',
-    'llama70b-instruct': 'llama3.1:70b-instruct-q3_K_L',
-    'gemma2b': 'gemma2:2b',
-    'gemma9b': 'gemma2:latest',
-    'gemma27b': 'gemma2:27b',
-    'mistral7b': 'mistral:latest',
-    'mistral-nemo12b': 'mistral-nemo:latest',
-    'mixtral8x7b': 'mixtral:8x7b',
+    'llama8b': 'llama3.1:8b-instruct-q4_0',
+    'llama8b-fp16': 'llama3.1:8b-instruct-fp16',
+    'llama70b': 'llama3.1:70b-instruct-q3_K_L',
+    'gemma9b': 'gemma2:9b-instruct-q4_0',
+    'gemma27b': 'gemma2:27b-instruct-q4_0',
+    'mistral7b': 'mistral:instruct',
+    'mistral-nemo12b': 'mistral-nemo:12b-instruct-2407-q4_0',
+    'mixtral8x7b': 'mixtral:instruct',
+    'mixtral8x22b': 'mixtral:8x22b-instruct',
+    'mistral-large': 'mistral-large:123b-instruct-2407-q4_0',
 }
 
-TEMPERATURE = 0.5
+TEMPERATURE = 0.4
 MAX_TOKENS = 500
 TOP_P = 0.9
 TOP_K = 40
@@ -146,6 +146,7 @@ async def query_ollama_batched(
     :param context_window: Int: Context window length in tokens to use for the request
     :param output_format: String: Output format to use for the request
     :param keep_alive: Int: Keep alive value in seconds to use for the request
+    :param concurrent_requests: Int: Number of concurrent requests to send to the server
     :return: List[Dict or String]: List of responses from the server
     """
 
@@ -332,8 +333,7 @@ def prompt_batched(
             top_k=top_k,
             repeat_penalty=repeat_penalty,
             context_window=context_window,
-            output_format='json' if json_format else '',
-            concurrent_requests=8
+            output_format='json' if json_format else ''
         ))
 
     end_time = timeit.default_timer()

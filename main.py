@@ -240,7 +240,9 @@ def main():
         logging.info(f"Using model {model_code}.")
         print(f"Using model {model_code}.")
 
+        print(f"Loading model {model_code}...")
         api_wrapper.load_model(ollama_client, model_code)
+        print(f"Model {model_code} loaded.")
 
         print(f'Running pipeline with the arguments: ')
         print(f'  skip_crawl: {args.no_crawl}')
