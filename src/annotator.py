@@ -97,7 +97,7 @@ class Annotator:
             ollama_client=self.ollama_client,
             system_msg=system_message,
             user_msgs=user_msgs,
-            options={"max_tokens": 2048, "num_ctx": 4096},
+            options={"max_tokens": 2048, "num_ctx": 8192},
             json_format=True
         )
 

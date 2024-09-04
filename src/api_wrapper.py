@@ -11,14 +11,19 @@ models = {
     'llama3': 'llama3:instruct',
     'llama8b': 'llama3.1:8b-instruct-q4_0',
     'llama8b-fp16': 'llama3.1:8b-instruct-fp16',
-    'llama70b': 'llama3.1:70b-instruct-q3_K_L',
+    'llama70b': 'llama3.1:70b-instruct-q3_K_S',
     'gemma9b': 'gemma2:9b-instruct-q4_0',
     'gemma27b': 'gemma2:27b-instruct-q4_0',
     'mistral7b': 'mistral:instruct',
     'mistral-nemo12b': 'mistral-nemo:12b-instruct-2407-q4_0',
     'mixtral8x7b': 'mixtral:instruct',
-    'mixtral8x22b': 'mixtral:8x22b-instruct',
-    'mistral-large': 'mistral-large:123b-instruct-2407-q4_0',
+    'phi3b': 'phi3:3.8b-mini-128k-instruct-q4_0',
+    'phi3b-fp': 'phi3:3.8b-mini-128k-instruct-fp16',
+    'phi14b': 'phi3:14b-medium-128k-instruct-q4_0',
+    'phi14b-fp': 'phi3:14b-medium-128k-instruct-fp16',
+    'qwen7b': 'qwen2:7b-instruct',
+    'qwen7b-fp': 'qwen2:7b-instruct-fp16',
+    'qwen72b': 'qwen2:72b-instruct',
 }
 
 TEMPERATURE = 0.4
