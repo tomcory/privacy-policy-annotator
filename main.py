@@ -4,10 +4,10 @@ import json
 import time
 import timeit
 import datetime
-
 import ollama
 import logging
 import argparse
+from openai import OpenAI
 from typing import Callable
 from ollama import AsyncClient
 
@@ -17,6 +17,7 @@ from src.detector import Detector
 from src.fixer import Fixer
 from src.parser import Parser
 from src.annotator import Annotator
+from src.api_wrapper import ApiWrapper
 
 DEFAULT_MODEL = "llama8b"
 
@@ -66,7 +67,7 @@ def run_batch(run_id: str, task: str, in_folder: str, func: Callable[[str, str],
 def run_pipeline(
         run_id: str,
         model: str,
-        ollama_client: AsyncClient,
+        llm_api: ApiWrapper,
         id_file: str = None,
         single_pkg: str = None,
         crawl_retries: int = 2,
@@ -101,10 +102,10 @@ def run_pipeline(
         logging.info(f"Processing package: {pkg}")
 
         cleaner = Cleaner(run_id, pkg)
-        detector = Detector(run_id, pkg, ollama_client)
-        fixer = Fixer(run_id, pkg, ollama_client)
+        detector = Detector(run_id, pkg, llm_api, model)
+        fixer = Fixer(run_id, pkg, llm_api, model)
         parser = Parser(run_id, pkg)
-        annotator = Annotator(run_id, pkg, ollama_client)
+        annotator = Annotator(run_id, pkg, llm_api, model)
 
         if not skip_clean:
             cleaner.execute()
@@ -162,10 +163,15 @@ def main():
     )
     logging.getLogger('httpx').setLevel(logging.DEBUG)
 
+    ollama_models = [model_name for model_name in api_wrapper.OLLAMA_MODELS.keys()]
+    # TODO: change to correct values for openai models
+    openai_models = [model_name for model_name in api_wrapper.OPENAI_MODELS.keys()]
+
     parser = argparse.ArgumentParser(description="Run the pipeline with specified parameters.")
     parser.add_argument("-help", action="help", help="Show this help message and exit")
     parser.add_argument("-run-id", required=True, help="Run ID for the pipeline")
-    parser.add_argument("-model", default=DEFAULT_MODEL, choices=[model_name for model_name in api_wrapper.models.keys()],
+    parser.add_argument("-llm-service", required=True, choices=["openai", "ollama"], help="LLM service to use (openai or ollama)")
+    parser.add_argument("-model", required=True, choices=ollama_models + openai_models,
                         help="Model to use for the pipeline")
     parser.add_argument("-id-file", action="store_true", help="Toggle use of an ID file for multiple packages to process")
     parser.add_argument("-pkg", help="Single package to process")
@@ -192,8 +198,35 @@ def main():
     if args.pkg and args.id_file:
         parser.error("The -id-file option cannot be used with the -pkg option.")
 
-    ollama_client = AsyncClient()
+    if not args.model and not args.model_file:
+        parser.error("Either -model or -model-file must be provided.")
 
+    if args.model and args.model_file:
+        parser.error("The -model option cannot be used with the -model-file option.")
+
+    if args.llm_service == "ollama" and (args.batch_detect or args.batch_headline_fix or args.batch_annotate or args.batch_review):
+        parser.error("Batch processing is not supported for local inference with Ollama.")
+
+    # initialize the correct client and model list based on the selected LLM service
+    if args.llm_service == "openai":
+        logging.info("OpenAI service selected.")
+        print("OpenAI service selected.")
+        llm_client = OpenAI()
+        llm_models = openai_models
+    elif args.llm_service == "ollama":
+        logging.info("Ollama service selected.")
+        print("Ollama service selected.")
+        llm_client = AsyncClient()
+        llm_models = [model_code for model_code in api_wrapper.OLLAMA_MODELS.keys()]
+    else:
+        logging.error(f"Invalid LLM service selected: {args.llm_service}")
+        print("Invalid LLM service selected.")
+        sys.exit(1)
+
+    # initialize the api wrapper based on the selected LLM service
+    llm_api = ApiWrapper(llm_client)
+
+    # if the model file option is selected, read the models from the models.txt file
     if args.model_file:
         models_file_path = f"output/{args.run_id}/models.txt"
         if not os.path.exists(models_file_path):
@@ -204,47 +237,52 @@ def main():
         models = [model_name.strip() for model_name in file_content.splitlines()]
         # remove empty lines
         models = list(filter(None, models))
+        if args.llm_service == "ollama":
+            models = [api_wrapper.OLLAMA_MODELS[model] for model in models]
     else:
-        models = [args.model]
+        if args.llm_service == "ollama":
+            models = [api_wrapper.OLLAMA_MODELS[args.model]]
+        else:
+            models = [args.model]
 
-    for model in models:
-        if model not in api_wrapper.models.keys():
-            logging.error(f"Model {model} not in known model list.")
-            logging.error(f"Known models: {list(api_wrapper.models.keys())}")
-            print(f"Model {model} not in known model list.")
-            print(f"Please select one of the following models: {api_wrapper.models.keys()}")
+    for model_code in models:
+        # check if the model is in the list of known models
+        if model_code not in llm_models:
+            logging.error(f"Model {model_code} not in known model list.")
+            logging.error(f"Known models: {llm_models}")
+            print(f"Model {model_code} not in known model list.")
+            print(f"Please select one of the following models: {llm_models}")
             continue
         else:
-            downloaded_models = [model['name'] for model in ollama.list()['models']]
-            if api_wrapper.models[model] not in downloaded_models:
-                logging.debug(f"Downloaded models: {downloaded_models}")
-                logging.warning(f"Model {model} not in downloaded models. Downloading model {model}...")
-                print(f"Model {model} not in known model list. Downloading model...")
-                try:
-                    ollama.pull(api_wrapper.models[model])
-                    logging.info(f"Model {api_wrapper.models[model]} downloaded.")
-                    print(f"Model {api_wrapper.models[model]} downloaded.")
-                    os.environ['LLM_MODEL'] = model
-                except Exception as e:
-                    logging.error(f"Error downloading model {api_wrapper.models[model]}: {e}", exc_info=True)
-                    print(f"Error downloading model {model}: {e}")
-                    logging.warning(f"Proceeding with default model {DEFAULT_MODEL}.")
-                    os.environ['LLM_MODEL'] = DEFAULT_MODEL
-                    print(f"Proceeding with default model {DEFAULT_MODEL}.")
-            else:
-                logging.info(f"Model {model} already downloaded.")
-                logging.info(f"Using model {model}.")
-                os.environ['LLM_MODEL'] = model
+            # handle model downloading if the model is in the known list but not downloaded yet for local models
+            if args.llm_service == "ollama":
+                downloaded_models = llm_api.downloaded_models
+                if model_code not in downloaded_models:
+                    logging.debug(f"Downloaded models: {downloaded_models}")
+                    logging.warning(f"Model {model_code} not in downloaded models. Downloading model {model_code}...")
+                    print(f"Model {model_code} not in known model list. Downloading model...")
+                    try:
+                        ollama.pull(model_code)
+                        logging.info(f"Model {model_code} downloaded.")
+                        print(f"Model {model_code} downloaded.")
+                    except Exception as e:
+                        logging.error(f"Error downloading model {model_code}: {e}", exc_info=True)
+                        print(f"Error downloading model {model_code}: {e}")
+                        raise e
+                else:
+                    logging.info(f"Model {model_code} already downloaded.")
+                    logging.info(f"Using model {model_code}.")
 
-        model_code = api_wrapper.models[os.environ.get('LLM_MODEL', DEFAULT_MODEL)]
         logging.info(f"Using model {model_code}.")
         print(f"Using model {model_code}.")
 
-        print(f"Loading model {model_code}...")
-        api_wrapper.load_model(ollama_client, model_code)
-        print(f"Model {model_code} loaded.")
+        # pre-load the model if using local inference for faster processing
+        if args.llm_service == "ollama":
+            print(f"Loading model {model_code}...")
+            llm_api.load_model(model_code)
+            print(f"Model {model_code} loaded.")
 
-        print(f'Running pipeline with the arguments: ')
+        print(f'Running pipeline using {"local inference" if args.llm_service == "ollama" else "OpenAI"} and the following parameters...')
         print(f'  skip_crawl: {args.no_crawl}')
         print(f'  skip_clean: {args.no_clean}')
         print(f'  skip_detect: {args.no_detect}')
@@ -268,7 +306,7 @@ def main():
             run_pipeline(
                 run_id=args.run_id,
                 model=model_code,
-                ollama_client=ollama_client,
+                llm_api=llm_api,
                 id_file=args.id_file,
                 single_pkg=args.pkg,
                 crawl_retries=args.crawl_retries,
@@ -295,7 +333,7 @@ def main():
             print(f"\n\nPipeline failed after {datetime.timedelta(seconds=end_time - start_time)}")
             raise e
 
-        api_wrapper.unload_model(ollama_client, model_code)
+        llm_api.unload_model(model_code)
 
 
 if __name__ == '__main__':

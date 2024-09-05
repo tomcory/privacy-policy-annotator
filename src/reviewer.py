@@ -80,7 +80,7 @@ def prepare_batch(run_id: str, pkg: str):
 
     for index, passage in enumerate(policy):
         entry = api_wrapper.prepare_batch_entry(
-            model=api_wrapper.models['gpt-4o-mini'],
+            model=api_wrapper.OLLAMA_MODELS['gpt-4o-mini'],
             system_msg=system_msg,
             user_msg=json.dumps(passage),
             examples=[(example_1_in, example_1_out)],

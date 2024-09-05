@@ -2,21 +2,20 @@ import json
 import os
 import logging
 
-from ollama import AsyncClient
-
 from src import util, api_wrapper
+from src.api_wrapper import ApiWrapper
 
 
 class Annotator:
-    def __init__(self, run_id: str, pkg: str, ollama_client: AsyncClient, use_batch: bool = False):
+    def __init__(self, run_id: str, pkg: str, llm_api: ApiWrapper, model: str, use_batch: bool = False):
         self.task = "annotator"
-        self.model = api_wrapper.models[os.environ.get('LLM_MODEL', 'llama8b')]
+        self.model = model
         self.in_folder = f"output/{run_id}/json"
         self.out_folder = f"output/{run_id}/annotated"
 
         self.run_id = run_id
         self.pkg = pkg
-        self.ollama_client = ollama_client
+        self.llm_api = llm_api
         self.use_batch = use_batch
 
     def execute(self):
@@ -37,30 +36,28 @@ class Annotator:
                 system_message = util.read_from_file(f'{os.path.join(os.getcwd(), "system-prompts/annotator_system_prompt.md")}')
 
                 # TODO: check if the outputs are actually formatted correctly as JSON (sometimes whitespaces seem to be contained in the output)
-                result, inference_time = api_wrapper.prompt(
+                result, inference_time = self.llm_api.prompt(
                     run_id=self.run_id,
                     pkg=self.pkg,
                     task=self.task,
                     model=self.model,
-                    ollama_client=self.ollama_client,
                     system_msg=system_message,
                     user_msg=json.dumps(passage),
-                    options={"max_tokens": 2048},
+                    max_tokens=2048,
                     json_format=True
                 )
 
                 # retry once if the result JSON does not contain the key 'annotations'
                 if 'annotations' not in result:
                     logging.warning(f"Retrying annotation for {self.pkg} due to missing 'annotations' key in result.")
-                    result, inference_time = api_wrapper.prompt(
+                    result, inference_time = self.llm_api.prompt(
                         run_id=self.run_id,
                         pkg=self.pkg,
                         task=self.task,
                         model=self.model,
-                        ollama_client=self.ollama_client,
                         system_msg=system_message,
                         user_msg=json.dumps(passage),
-                        options={"max_tokens": 2048},
+                        max_tokens=2048,
                         json_format=True
                     )
 
@@ -89,15 +86,15 @@ class Annotator:
         system_message = util.read_from_file(f'{os.path.join(os.getcwd(), "system-prompts/annotator_system_prompt.md")}')
         user_msgs = [json.dumps(passage) for passage in policy]
 
-        result, total_inference_time = api_wrapper.prompt_batched(
+        result, total_inference_time = self.llm_api.prompt_parallel(
             run_id=self.run_id,
             pkg=self.pkg,
             task=self.task,
             model=self.model,
-            ollama_client=self.ollama_client,
             system_msg=system_message,
             user_msgs=user_msgs,
-            options={"max_tokens": 2048, "num_ctx": 8192},
+            max_tokens=4096,
+            context_window=7168,
             json_format=True
         )
 

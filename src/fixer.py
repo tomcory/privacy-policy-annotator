@@ -3,10 +3,10 @@ import ast
 import logging
 import tiktoken
 
-from ollama import AsyncClient
 from bs4 import BeautifulSoup, NavigableString
 
 from src import api_wrapper, util
+from src.api_wrapper import ApiWrapper
 
 
 def replace_long_text_with_placeholders(soup: BeautifulSoup):
@@ -32,15 +32,15 @@ def replace_long_text_with_placeholders(soup: BeautifulSoup):
     return soup
 
 class Fixer:
-    def __init__(self, run_id: str, pkg: str, ollama_client: AsyncClient, use_batch: bool = False):
+    def __init__(self, run_id: str, pkg: str, llm_api: ApiWrapper, model: str, use_batch: bool = False):
         self.task = "fixer"
-        self.model = api_wrapper.models[os.environ.get('LLM_MODEL', 'llama8b')]
+        self.model = model
         self.in_folder = f"output/{run_id}/accepted"
         self.out_folder = f"output/{run_id}/fixed"
 
         self.run_id = run_id
         self.pkg = pkg
-        self.ollama_client = ollama_client
+        self.llm_api = llm_api
         self.use_batch = use_batch
 
     def execute(self):
@@ -94,15 +94,15 @@ class Fixer:
             system_message = util.read_from_file(f'{os.path.join(os.getcwd(), "system-prompts/fixer_system_prompt.md")}')
 
             # TODO: figure out why the LLM sometimes outputs additional text accompanying the list
-            output, inference_time = api_wrapper.prompt(
+            output, inference_time = self.llm_api.prompt(
                 run_id=run_id,
                 pkg=pkg,
                 task=self.task,
                 model=self.model,
-                ollama_client=self.ollama_client,
                 system_msg=system_message,
                 user_msg=html,
-                options={"max_tokens": 1024, "num_ctx": 8192},
+                max_tokens=2048,
+                context_window=8192,
                 json_format=False
             )
             try:
@@ -114,15 +114,15 @@ class Fixer:
                 print(f"Error parsing output of fixer: {output}")
                 logging.error(f"Error parsing output of fixer: {output}")
                 # retry once
-                output, inference_time = api_wrapper.prompt(
+                output, inference_time = self.llm_api.prompt(
                     run_id=run_id,
                     pkg=pkg,
                     task=self.task,
                     model=self.model,
-                    ollama_client=self.ollama_client,
                     system_msg=system_message,
                     user_msg=html,
-                    options={"max_tokens": 1024, "num_ctx": 8192},
+                    max_tokens=2048,
+                    context_window=8192,
                     json_format=False
                 )
                 try:

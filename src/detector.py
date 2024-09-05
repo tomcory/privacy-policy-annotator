@@ -2,9 +2,9 @@ import os
 import logging
 import tiktoken
 from bs4 import BeautifulSoup
-from ollama import AsyncClient
 
 from src import api_wrapper, util
+from src.api_wrapper import ApiWrapper
 
 
 def generate_excerpt(html: str):
@@ -22,15 +22,15 @@ def generate_excerpt(html: str):
 
 
 class Detector:
-    def __init__(self, run_id: str, pkg: str, ollama_client: AsyncClient, use_batch: bool = False):
+    def __init__(self, run_id: str, pkg: str, llm_api: ApiWrapper, model: str, use_batch: bool = False):
         self.task = "detector"
-        self.model = api_wrapper.models[os.environ.get('LLM_MODEL', 'llama8b')]
+        self.model = model
         self.in_folder = f"output/{run_id}/cleaned"
         self.out_folder = f"output/{run_id}/accepted"
 
         self.run_id = run_id
         self.pkg = pkg
-        self.ollama_client = ollama_client
+        self.llm_api = llm_api
         self.use_batch = use_batch
 
     def execute(self) -> bool:
@@ -47,15 +47,15 @@ class Detector:
             else:
                 system_message = util.read_from_file(f'{os.path.join(os.getcwd(), "system-prompts/detector_system_prompt.md")}')
 
-                output, inference_time = api_wrapper.prompt(
+                output, inference_time = self.llm_api.prompt(
                     run_id=self.run_id,
                     pkg=self.pkg,
                     task=self.task,
                     model=self.model,
-                    ollama_client=self.ollama_client,
                     system_msg=system_message,
                     user_msg=generate_excerpt(policy),
-                    options={"max_tokens": 1},
+                    max_tokens=1,
+                    context_window=1024,
                     json_format=False
                 )
 
