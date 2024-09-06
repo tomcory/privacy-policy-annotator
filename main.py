@@ -19,6 +19,7 @@ from src.detector import Detector
 from src.fixer import Fixer
 from src.parser import Parser
 from src.annotator import Annotator
+from src.reviewer import Reviewer
 from src.api_wrapper import ApiWrapper
 
 DEFAULT_MODEL = "llama8b"
@@ -86,7 +87,6 @@ def run_pipeline(
         batch_review: bool = False,
         parallel_processing: bool = False
 ):
-
     # prepare the output folders for the given run id
     if llm_api.client_type == "openai":
         util.prepare_output(run_id, model["name"], overwrite=False)
@@ -101,18 +101,20 @@ def run_pipeline(
         else:
             crawler.execute(id_file, out_folder, crawl_retries)
 
-    print(f"Running pipeline for run id: {run_id} with model: {model}")
+    print(f"\nRunning pipeline for run id: {run_id} with model: {model}\n")
     logging.info(f"Running pipeline for run id: {run_id} with model: {model}")
 
     def process_package(pkg):
         print(f"Processing package: {pkg}")
         logging.info(f"Processing package: {pkg}")
 
+        """ Pipeline elements """
         cleaner = Cleaner(run_id, pkg)
         detector = Detector(run_id, pkg, llm_api, model)
         fixer = Fixer(run_id, pkg, llm_api, model)
         parser = Parser(run_id, pkg)
         annotator = Annotator(run_id, pkg, llm_api, model)
+        reviewer = Reviewer(run_id, pkg, llm_api, model)
 
         if not skip_clean:
             cleaner.execute()
@@ -145,6 +147,14 @@ def run_pipeline(
                 annotator.execute()
         else:
             annotator.skip()
+
+        if not skip_review:
+            if parallel_processing:
+                reviewer.execute_parallel()
+            else:
+                reviewer.execute()
+        else:
+            reviewer.skip()
 
     if single_pkg is not None:
         process_package(single_pkg)
@@ -230,18 +240,18 @@ def main():
 
     # initialize the correct client and model list based on the selected LLM service
     if args.llm_service == "openai":
-        logging.info("OpenAI service selected.")
-        print("OpenAI service selected.")
+        logging.info("OpenAI selected.")
+        print("OpenAI selected.\n")
         llm_client = OpenAI()
         llm_names = openai_models
     elif args.llm_service == "ollama":
-        logging.info("Ollama service selected.")
-        print("Ollama service selected.")
+        logging.info("Ollama selected.")
+        print("Ollama selected.\n")
         llm_client = AsyncClient()
         llm_names = [model_code for model_code in api_wrapper.OLLAMA_MODELS.keys()]
     else:
         logging.error(f"Invalid LLM service selected: {args.llm_service}")
-        print("Invalid LLM service selected.")
+        print("Invalid LLM service selected.\n")
         sys.exit(1)
 
     # initialize the api wrapper based on the selected LLM service
@@ -306,7 +316,7 @@ def main():
         if args.llm_service == "ollama":
             print(f"Loading model {model_code}...")
             llm_api.load_model(model_code)
-            print(f"Model {model_code} loaded.")
+            print(f"Model {model_code} loaded.\n")
             model = model_code
         else:
             model = api_wrapper.OPENAI_MODELS[model_code]

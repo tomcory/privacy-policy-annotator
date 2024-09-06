@@ -34,7 +34,7 @@ class Detector:
         self.use_batch = use_batch
 
     def execute(self) -> bool:
-        print(f">>> Detecting whether {self.pkg} is a policy...")
+        print(f"\n>>> Detecting whether {self.pkg} is a policy...")
         logging.info(f"Detecting whether {self.pkg} is a policy...")
 
         file_path = f"{self.in_folder}/{self.pkg}.html"
@@ -66,7 +66,7 @@ class Detector:
 
             util.write_to_file(f"output/{self.run_id}/{self.model}_responses/detector/{self.pkg}.txt", output)
 
-            print(f"Detector time {inference_time} s\n")
+            print(f"Detector time {inference_time} s")
 
             # sort the output accordingly
             if output == 'true':
@@ -91,6 +91,6 @@ class Detector:
             return False
 
     def skip(self):
-        print(">>> Skipping headline detection for %s..." % self.pkg)
+        print("\n>>> Skipping headline detection for %s..." % self.pkg)
         logging.info("Skipping headline detection for %s..." % self.pkg)
         util.copy_file(f"{self.in_folder}/{self.pkg}.html", f"{self.out_folder}/{self.pkg}.html")

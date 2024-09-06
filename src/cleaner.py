@@ -15,7 +15,7 @@ def remove_surrounding_structure(soup: BeautifulSoup):
     for comment in comments:
         comment.extract()
         i += 1
-    print('> Removed %d comments.' % i)
+    # print('> Removed %d comments.' % i)
 
     # remove all unwanted tags
     unwanted_tags = ['head', 'title', 'meta', 'link', 'style', 'script', 'noscript', 'iframe', 'object', 'nav', 'footer']
@@ -24,7 +24,7 @@ def remove_surrounding_structure(soup: BeautifulSoup):
         for element in soup.find_all(tag):
             element.decompose()
             i += 1
-    print('> Removed %d elements based on their tag name.' % i)
+#     print('> Removed %d elements based on their tag name.' % i)
 
     # remove all tags that have classes, roles or ids related to nav, header, footer, modals, banners, etc.
     removal_counter = 0
@@ -55,7 +55,7 @@ def remove_surrounding_structure(soup: BeautifulSoup):
             removal_counter += 1
             pass
 
-    print('> Removed %d elements based on their class, role or id.' % removal_counter)
+#     print('> Removed %d elements based on their class, role or id.' % removal_counter)
 
     # if there's a main element, reduce the soup to that
     policy = soup.find("main")
@@ -96,7 +96,7 @@ def remove_surrounding_structure(soup: BeautifulSoup):
 
     if policy is not None:
         # print the tag that was found with its attributes
-        print('Found tag: %s' % policy)
+#         print('Found tag: %s' % policy)
         # remove all elements of the soup except the policy container and its children
         soup = BeautifulSoup(str(policy), 'html.parser')
 
@@ -174,10 +174,10 @@ def parse_pre_tags(soup: BeautifulSoup):
 
             # count the number of line breaks in the content
             line_breaks = pre.get_text().count('\n')
-            print('Found %d line breaks in <pre> content...' % line_breaks)
+#             print('Found %d line breaks in <pre> content...' % line_breaks)
             # Split content based on two or more consecutive line breaks, and insert each chunk as a <p> element
             chunks = re.split(r'\n', pre.get_text())
-            print('Splitting %d chunks...' % len(chunks))
+#             print('Splitting %d chunks...' % len(chunks))
             for chunk in chunks:
                 new_p = soup.new_tag('p')
                 new_p.string = chunk
@@ -290,7 +290,7 @@ def wrap_nonterminal_text(soup: BeautifulSoup):
         if len(element.contents) > 1:
             for child in element.contents:
                 if isinstance(child, NavigableString) and child.strip():
-                    print("Wrapping non-terminal text in %s" % element.name)
+#                     print("Wrapping non-terminal text in %s" % element.name)
                     if element.name == "h2":
                         for child2 in element.children:
                             print("h2 child: %s" % child)
@@ -418,7 +418,7 @@ class Cleaner:
         self.use_batch = use_batch
 
     def execute(self):
-        print(">>> Cleaning %s..." % self.pkg)
+        print("\n>>> Cleaning %s..." % self.pkg)
         logging.info("Cleaning %s..." % self.pkg)
         file_path = "%s/%s.html" % (self.in_folder, self.pkg)
 
@@ -432,6 +432,6 @@ class Cleaner:
             util.write_to_file("%s/%s.html" % (self.out_folder, self.pkg), cleaned)
 
     def skip(self):
-        print(">>> Skipping cleaning %s..." % self.pkg)
+        print("\n>>> Skipping cleaning %s..." % self.pkg)
         logging.info("Skipping cleaning %s..." % self.pkg)
         util.copy_folder(self.in_folder, self.out_folder)

@@ -44,7 +44,7 @@ class Fixer:
         self.use_batch = use_batch
 
     def execute(self):
-        print(f">>> Fixing {self.pkg}...")
+        print(f"\n>>> Fixing {self.pkg}...")
         logging.info(f"Fixing {self.pkg}...")
         file_path = f"{self.in_folder}/{self.pkg}.html"
 
@@ -102,7 +102,7 @@ class Fixer:
                 system_msg=system_message,
                 user_msg=html,
                 max_tokens=2048,
-                context_window=8192,
+                context_window=6144,
                 json_format=False
             )
             try:
@@ -122,7 +122,7 @@ class Fixer:
                     system_msg=system_message,
                     user_msg=html,
                     max_tokens=2048,
-                    context_window=8192,
+                    context_window=6144,
                     json_format=False
                 )
                 try:
@@ -180,6 +180,6 @@ class Fixer:
         return headlines
 
     def skip(self):
-        print(">>> Skipping fixing %s..." % self.pkg)
+        print("\n>>> Skipping fixing %s..." % self.pkg)
         logging.info("Skipping fixing %s..." % self.pkg)
         util.copy_file(f"{self.in_folder}/{self.pkg}.html", f"{self.out_folder}/{self.pkg}.html")

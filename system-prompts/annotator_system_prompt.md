@@ -186,58 +186,6 @@ The input will be a JSON object that contains a field denoting the type of HTML 
 }
 ```
 
-### **Positive Example 3:**
-
-**Input Example (Positive):**
-```json
-{
-  "type": "p",
-  "context": [
-    {
-      "text": "ABC Service Privacy Policy",
-      "type": "h1"
-    },
-    {
-      "text": "How We Handle Your Data",
-      "type": "h2"
-    }
-  ],
-  "passage": "We may collect your browsing history to tailor personalized advertisements and offers to your preferences."
-}
-```
-
-**Output Example (Positive):**
-```json
-{
-  "type": "p",
-  "context": [
-    {
-      "text": "ABC Service Privacy Policy",
-      "type": "h1"
-    },
-    {
-      "text": "How We Handle Your Data",
-      "type": "h2"
-    }
-  ],
-  "passage": "We may collect your browsing history to tailor personalized advertisements and offers to your preferences.",
-  "annotations": [
-    {
-      "requirement": "Data Categories",
-      "value": "browsing history",
-      "generalized_value": "behavioral data",
-      "performed": true
-    },
-    {
-      "requirement": "Processing Purpose",
-      "value": "tailor personalized advertisements and offers",
-      "generalized_value": "targeted advertising",
-      "performed": true
-    }
-  ]
-}
-```
-
 ### **Negative Example 1:**
 
 **Input Example (Negative):**

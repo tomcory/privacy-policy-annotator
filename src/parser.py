@@ -39,7 +39,7 @@ class Parser:
         self.encoder = tiktoken.get_encoding(tokenizer_encoding)
 
     def execute(self):
-        print(f">>> Parsing {self.pkg}...")
+        print(f"\n>>> Parsing {self.pkg}...")
         file_path = f"{self.in_folder}/{self.pkg}.html"
         self.html_content = util.read_from_file(file_path)
         output = self.parse_to_json()
@@ -143,6 +143,6 @@ class Parser:
         return -1, None
 
     def skip(self):
-        print(">>> Skipping parsing %s..." % self.pkg)
+        print("\n>>> Skipping parsing %s..." % self.pkg)
         logging.info("Skipping parsing %s..." % self.pkg)
         util.copy_folder(self.in_folder, self.out_folder)
