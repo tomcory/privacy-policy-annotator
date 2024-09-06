@@ -1,6 +1,6 @@
 chardet~=5.2.0
 beautifulsoup4~=4.12.2
 tiktoken~=0.5.2
-selenium~=4.16.0
+selenium~=4.23.0
 python-dotenv~=1.0.0
 openai~=1.39.0
