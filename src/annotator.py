@@ -75,7 +75,7 @@ class Annotator:
 
         util.write_to_file(f"output/{self.run_id}/annotated/{self.model}.{self.pkg}.json", json.dumps(output, indent=4))
 
-    def execute_batched(self):
+    def execute_parallel(self):
         print(f"Annotating {self.pkg} in batch mode...")
         logging.info(f"Annotating {self.pkg} in batch mode...")
 

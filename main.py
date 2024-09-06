@@ -7,8 +7,10 @@ import datetime
 import ollama
 import logging
 import argparse
+
+from dotenv import load_dotenv
 from openai import OpenAI
-from typing import Callable
+from typing import Callable, Union
 from ollama import AsyncClient
 
 from src import crawler, api_wrapper, util
@@ -66,7 +68,7 @@ def run_batch(run_id: str, task: str, in_folder: str, func: Callable[[str, str],
 
 def run_pipeline(
         run_id: str,
-        model: str,
+        model: Union[str, dict],
         llm_api: ApiWrapper,
         id_file: str = None,
         single_pkg: str = None,
@@ -81,10 +83,15 @@ def run_pipeline(
         batch_detect: bool = False,
         batch_headline_fix: bool = False,
         batch_annotate: bool = False,
-        batch_review: bool = False):
+        batch_review: bool = False,
+        parallel_processing: bool = False
+):
 
     # prepare the output folders for the given run id
-    util.prepare_output(run_id, model, overwrite=False)
+    if llm_api.client_type == "openai":
+        util.prepare_output(run_id, model["name"], overwrite=False)
+    else:
+        util.prepare_output(run_id, model, overwrite=False)
 
     # crawl the privacy policies of the given packages if required
     if not skip_crawl:
@@ -132,8 +139,8 @@ def run_pipeline(
             parser.skip()
 
         if not skip_annotate:
-            if batch_annotate:
-                annotator.execute_batched()
+            if parallel_processing:
+                annotator.execute_parallel()
             else:
                 annotator.execute()
         else:
@@ -171,12 +178,11 @@ def main():
     parser.add_argument("-help", action="help", help="Show this help message and exit")
     parser.add_argument("-run-id", required=True, help="Run ID for the pipeline")
     parser.add_argument("-llm-service", required=True, choices=["openai", "ollama"], help="LLM service to use (openai or ollama)")
-    parser.add_argument("-model", required=True, choices=ollama_models + openai_models,
+    parser.add_argument("-model", choices=ollama_models + openai_models,
                         help="Model to use for the pipeline")
     parser.add_argument("-id-file", action="store_true", help="Toggle use of an ID file for multiple packages to process")
     parser.add_argument("-pkg", help="Single package to process")
     parser.add_argument("-crawl-retries", type=int, default=2, help="Number of crawl retries")
-    parser.add_argument("-debug", action="store_true", help="Enable debug logging")
     parser.add_argument("-no-crawl", action="store_true", help="Skip the crawl step")
     parser.add_argument("-no-clean", action="store_true", help="Skip the clean step")
     parser.add_argument("-no-detect", action="store_true", help="Skip the detect step")
@@ -189,6 +195,8 @@ def main():
     parser.add_argument("-batch-annotate", action="store_true", help="Run annotate step in batch mode")
     parser.add_argument("-batch-review", action="store_true", help="Run review step in batch mode")
     parser.add_argument("-model-file", action="store_true", help="Run pipeline for multiple models listed in models.txt")
+    parser.add_argument("-parallel-off", action="store_false", help="Use parallel processing for local inference")
+    parser.add_argument("-debug", action="store_true", help="Enable debug logging")
 
     args = parser.parse_args()
 
@@ -207,17 +215,30 @@ def main():
     if args.llm_service == "ollama" and (args.batch_detect or args.batch_headline_fix or args.batch_annotate or args.batch_review):
         parser.error("Batch processing is not supported for local inference with Ollama.")
 
+    if args.llm_service == "openai":
+        load_dotenv()
+
+        if args.parallel_off:
+            parser.error("Parallel processing is only supported for local inference with Ollama.")
+        else:
+            parallel_processing = False
+    else:
+        if args.parallel_off:
+            parallel_processing = False
+        else:
+            parallel_processing = True
+
     # initialize the correct client and model list based on the selected LLM service
     if args.llm_service == "openai":
         logging.info("OpenAI service selected.")
         print("OpenAI service selected.")
         llm_client = OpenAI()
-        llm_models = openai_models
+        llm_names = openai_models
     elif args.llm_service == "ollama":
         logging.info("Ollama service selected.")
         print("Ollama service selected.")
         llm_client = AsyncClient()
-        llm_models = [model_code for model_code in api_wrapper.OLLAMA_MODELS.keys()]
+        llm_names = [model_code for model_code in api_wrapper.OLLAMA_MODELS.keys()]
     else:
         logging.error(f"Invalid LLM service selected: {args.llm_service}")
         print("Invalid LLM service selected.")
@@ -245,13 +266,18 @@ def main():
         else:
             models = [args.model]
 
+    if args.llm_service == "ollama":
+        known_models = [api_wrapper.OLLAMA_MODELS[model_name] for model_name in llm_names]
+    else:
+        known_models = llm_names
+
     for model_code in models:
         # check if the model is in the list of known models
-        if model_code not in llm_models:
+        if model_code not in known_models:
             logging.error(f"Model {model_code} not in known model list.")
-            logging.error(f"Known models: {llm_models}")
+            logging.error(f"Known models: {known_models}")
             print(f"Model {model_code} not in known model list.")
-            print(f"Please select one of the following models: {llm_models}")
+            print(f"Please select one of the following models: {known_models}")
             continue
         else:
             # handle model downloading if the model is in the known list but not downloaded yet for local models
@@ -281,6 +307,9 @@ def main():
             print(f"Loading model {model_code}...")
             llm_api.load_model(model_code)
             print(f"Model {model_code} loaded.")
+            model = model_code
+        else:
+            model = api_wrapper.OPENAI_MODELS[model_code]
 
         print(f'Running pipeline using {"local inference" if args.llm_service == "ollama" else "OpenAI"} and the following parameters...')
         print(f'  skip_crawl: {args.no_crawl}')
@@ -294,6 +323,7 @@ def main():
         print(f'  batch_headline_fix: {args.batch_headline_fix}')
         print(f'  batch_annotate: {args.batch_annotate}')
         print(f'  batch_review: {args.batch_review}')
+        print(f'  parallel_processing: {parallel_processing}')
 
         skip_steps = any([
             args.no_crawl, args.no_clean, args.no_detect, args.no_headline_fix,
@@ -305,7 +335,7 @@ def main():
         try:
             run_pipeline(
                 run_id=args.run_id,
-                model=model_code,
+                model=model,
                 llm_api=llm_api,
                 id_file=args.id_file,
                 single_pkg=args.pkg,
@@ -320,7 +350,8 @@ def main():
                 batch_detect=args.batch_detect if skip_steps else False,
                 batch_headline_fix=args.batch_headline_fix if skip_steps else False,
                 batch_annotate=args.batch_annotate if skip_steps else False,
-                batch_review=args.batch_review if skip_steps else False
+                batch_review=args.batch_review if skip_steps else False,
+                parallel_processing=parallel_processing,
             )
             end_time = timeit.default_timer()
             logging.info(f"\n\nPipeline completed in {datetime.timedelta(seconds=end_time - start_time)}")
