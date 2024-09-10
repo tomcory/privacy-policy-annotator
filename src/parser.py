@@ -39,7 +39,7 @@ class Parser:
         self.encoder = tiktoken.get_encoding(tokenizer_encoding)
 
     def execute(self):
-        print(f"\n>>> Parsing {self.pkg}...")
+        # print(f"\n>>> Parsing {self.pkg}...")
         file_path = f"{self.in_folder}/{self.pkg}.html"
         self.html_content = util.read_from_file(file_path)
         output = self.parse_to_json()
@@ -53,7 +53,7 @@ class Parser:
             self.__handle_children(soup)
             return json.dumps(self.blocks, indent=2)
         else:
-            print('Cannot parse an empty HTML document!')
+#             print('Cannot parse an empty HTML document!')
             return json.dumps([])
 
     def __handle_children(self, element):
@@ -143,6 +143,6 @@ class Parser:
         return -1, None
 
     def skip(self):
-        print("\n>>> Skipping parsing %s..." % self.pkg)
+        # print("\n>>> Skipping parsing %s..." % self.pkg)
         logging.info("Skipping parsing %s..." % self.pkg)
         util.copy_folder(self.in_folder, self.out_folder)

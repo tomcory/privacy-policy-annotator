@@ -9,3 +9,7 @@ nltk~=3.9.1
 numpy~=1.26.4
 gensim~=4.3.3
 scipy~=1.13.1
+torch~=2.4.1
+transformers~=4.44.2
+datasets~=2.21.0
+sentence-transformers~=3.0.1

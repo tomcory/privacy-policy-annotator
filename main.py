@@ -117,11 +117,13 @@ def run_pipeline(
         reviewer = Reviewer(run_id, pkg, llm_api, model)
 
         if not skip_clean:
+            print(f"\rCleaning...{' ' * 10}", end='', flush=True)
             cleaner.execute()
         else:
             cleaner.skip()
 
         if not skip_detect:
+            print(f"\rDetecting...{' ' * 10}", end='', flush=True)
             is_a_policy = detector.execute()
             if not is_a_policy:
                 print(f"Package {pkg} is not a policy. Skipping further processing.\n")
@@ -131,30 +133,38 @@ def run_pipeline(
             detector.skip()
 
         if not skip_headline_fix:
+            print(f"\rFixing headlines...{' ' * 10}", end='', flush=True)
             fixer.execute()
         else:
             fixer.skip()
 
         if not skip_parse:
+            print(f"\rParsing...{' ' * 10}", end='', flush=True)
             parser.execute()
         else:
             parser.skip()
 
         if not skip_annotate:
             if parallel_processing:
+                print(f"\rAnnotating in parallel...{' ' * 10}", end='', flush=True)
                 annotator.execute_parallel()
             else:
+                print(f"\rAnnotating...{' ' * 10}", end='', flush=True)
                 annotator.execute()
         else:
             annotator.skip()
 
         if not skip_review:
             if parallel_processing:
+                print(f"\rReviewing in parallel...{' ' * 10}", end='', flush=True)
                 reviewer.execute_parallel()
             else:
+                print(f"\rReviewing...{' ' * 10}", end='', flush=True)
                 reviewer.execute()
         else:
             reviewer.skip()
+
+        print(f"\nPackage {pkg} processed.\n")
 
     if single_pkg is not None:
         process_package(single_pkg)
@@ -167,7 +177,10 @@ def run_pipeline(
             sys.exit(1)
         id_file = f"output/{run_id}/id_file.txt"
         with open(id_file, 'r') as file:
-            for line in file:
+            lines = file.readlines()
+            total_packages = len(lines)
+            for index, line in enumerate(lines):
+                print(f"Processing package {index + 1} of {total_packages}")
                 process_package(line.strip())
 
 
@@ -233,7 +246,7 @@ def main():
         else:
             parallel_processing = False
     else:
-        if args.parallel_off:
+        if not args.parallel_off:
             parallel_processing = False
         else:
             parallel_processing = True
@@ -281,6 +294,8 @@ def main():
     else:
         known_models = llm_names
 
+    start_time_run = timeit.default_timer()
+
     for model_code in models:
         # check if the model is in the list of known models
         if model_code not in known_models:
@@ -309,8 +324,8 @@ def main():
                     logging.info(f"Model {model_code} already downloaded.")
                     logging.info(f"Using model {model_code}.")
 
-        logging.info(f"Using model {model_code}.")
-        print(f"Using model {model_code}.")
+        logging.info(f"Using model {model_code} (model {models.index(model_code) + 1}/{len(models)}).")
+        print(f"Using model {model_code} (model {models.index(model_code) + 1}/{len(models)}).\n")
 
         # pre-load the model if using local inference for faster processing
         if args.llm_service == "ollama":
@@ -341,7 +356,7 @@ def main():
             args.batch_detect, args.batch_headline_fix, args.batch_annotate, args.batch_review
         ])
 
-        start_time = timeit.default_timer()
+        start_time_pipeline = timeit.default_timer()
         try:
             run_pipeline(
                 run_id=args.run_id,
@@ -363,18 +378,22 @@ def main():
                 batch_review=args.batch_review if skip_steps else False,
                 parallel_processing=parallel_processing,
             )
-            end_time = timeit.default_timer()
-            logging.info(f"\n\nPipeline completed in {datetime.timedelta(seconds=end_time - start_time)}")
-            print(f"\n\nPipeline completed in {datetime.timedelta(seconds=end_time - start_time)}")
+            end_time_pipeline = timeit.default_timer()
+            logging.info(f"\n\nPipeline completed in {datetime.timedelta(seconds=end_time_pipeline - start_time_pipeline)}")
+            print(f"\n\nPipeline completed in {datetime.timedelta(seconds=end_time_pipeline - start_time_pipeline)}")
         except Exception as e:
             logging.error(f"Error running pipeline: {e}", exc_info=True)
             print(f"Error running pipeline: {e}")
-            end_time = timeit.default_timer()
-            logging.info(f"\n\nPipeline failed after {datetime.timedelta(seconds=end_time - start_time)}")
-            print(f"\n\nPipeline failed after {datetime.timedelta(seconds=end_time - start_time)}")
+            end_time_pipeline = timeit.default_timer()
+            logging.info(f"\n\nPipeline failed after {datetime.timedelta(seconds=end_time_pipeline - start_time_pipeline)}")
+            print(f"\n\nPipeline failed after {datetime.timedelta(seconds=end_time_pipeline - start_time_pipeline)}")
             raise e
 
         llm_api.unload_model(model_code)
+
+    end_time_run = timeit.default_timer()
+    logging.info(f"\n\nRun \"{args.run_id}\" completed in {datetime.timedelta(seconds=end_time_run - start_time_run)}")
+    print(f"\n\nRun \"{args.run_id}\" completed in {datetime.timedelta(seconds=end_time_run - start_time_run)}")
 
 
 if __name__ == '__main__':

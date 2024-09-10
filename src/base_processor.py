@@ -18,8 +18,8 @@ class BaseProcessor:
         self.use_batch = use_batch
 
     def execute(self):
-        print(f">>>{'Annotat' if self.task == 'annotator' else 'Review'}ing {self.pkg}...")
-        logging.info(f">>>{'Annotat' if self.task == 'annotator' else 'Review'}ing {self.pkg}...")
+        # print(f">>>{'Annotat' if self.task == 'annotator' else 'Review'}ing {self.pkg}...")
+        logging.info(f"{'Annotat' if self.task == 'annotator' else 'Review'}ing {self.pkg}...")
 
         policy = util.load_policy_json(self.run_id, self.pkg, 'json')
         if policy is None:
@@ -68,15 +68,15 @@ class BaseProcessor:
                 raise json.JSONDecodeError
             output.append(passage)
 
-        print(f"{self.task.capitalize()} time: {total_inference_time} s\n")
+#         print(f"{self.task.capitalize()} time: {total_inference_time} s\n")
 
         util.add_to_file(f"output/{self.run_id}/{self.model}_responses/processing_times_{self.task}.csv", f"{self.pkg},{total_inference_time}\n")
 
-        util.write_to_file(f"output/{self.run_id}/{self.task}d/{self.model}.{self.pkg}.json", json.dumps(output, indent=4))
+        util.write_to_file(self.out_folder + f"/{self.model}.{self.pkg}.json", json.dumps(output, indent=4))
 
     def execute_parallel(self):
-        print(f"{self.task.capitalize()}ing {self.pkg} in batch mode...")
-        logging.info(f"{self.task.capitalize()}ing {self.pkg} in batch mode...")
+#         print(f">>>{'Annotat' if self.task == 'annotator' else 'Review'}ing {self.pkg} in batch mode...")
+        logging.info(f"{'Annotat' if self.task == 'annotator' else 'Review'}ing {self.pkg} in batch mode...")
 
         policy = util.load_policy_json(self.run_id, self.pkg, 'json')
         if policy is None:
@@ -102,16 +102,18 @@ class BaseProcessor:
             try:
                 passage = json.loads(res)
             except json.JSONDecodeError:
-                print(res)
+#                 print(res)
+                logging.error(res, exc_info=True)
                 raise json.JSONDecodeError
             output.append(passage)
 
-        print(f"{self.task.capitalize()} time: {total_inference_time} s\n")
+#         print(f"{self.task.capitalize()} time: {total_inference_time} s\n")
+            logging.info(f"{self.task.capitalize()} time: {total_inference_time} s")
 
         util.add_to_file(f"output/{self.run_id}/{self.model}_responses/processing_times_{self.task}.csv", f"{self.pkg},{total_inference_time}\n")
-        util.write_to_file(f"output/{self.run_id}/{self.task}d/{self.model}.{self.pkg}.json", json.dumps(output, indent=4))
+        util.write_to_file(self.out_folder + f"/{self.model}.{self.pkg}.json", json.dumps(output, indent=4))
 
     def skip(self):
-        print(f"\n>>> Skipping {self.task} for {self.pkg}...")
+#         print(f"\n>>> Skipping {self.task} for {self.pkg}...")
         logging.info(f"Skipping {self.task} for {self.pkg}...")
         util.copy_file(f"{self.in_folder}/{self.pkg}.json", f"{self.out_folder}/{self.pkg}.json")

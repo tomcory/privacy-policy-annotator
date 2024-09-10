@@ -7,7 +7,7 @@ from src import util
 
 
 def remove_surrounding_structure(soup: BeautifulSoup):
-    print('Removing surrounding structure...')
+    # print('Removing surrounding structure...')
 
     # remove all comments
     comments = soup.find_all(string=lambda text: isinstance(text, Comment))
@@ -77,22 +77,6 @@ def remove_surrounding_structure(soup: BeautifulSoup):
                         if policy is None:
                             # some sites use the role 'main' instead of the tag itself
                             policy = soup.find("div", {"role": re.compile('.*[mM]ain.*')})
-                            if policy is None:
-                                print('> No main container found.')
-                            else:
-                                print('Main (class) found, reducing soup...')
-                        else:
-                            print('Main (role) found, reducing soup...')
-                    else:
-                        print('Article (id) found, reducing soup...')
-                else:
-                    print('Article (class) found, reducing soup...')
-            else:
-                print('Article (role) found, reducing soup...')
-        else:
-            print('Article (tag) found, reducing soup...')
-    else:
-        print('Main (tag) found, reducing soup...')
 
     if policy is not None:
         # print the tag that was found with its attributes
@@ -100,7 +84,7 @@ def remove_surrounding_structure(soup: BeautifulSoup):
         # remove all elements of the soup except the policy container and its children
         soup = BeautifulSoup(str(policy), 'html.parser')
 
-    print('> Reduced soup to the main content.')
+#     print('> Reduced soup to the main content.')
 
     return soup
 
@@ -118,7 +102,7 @@ def unwrap_inline_elements(soup: BeautifulSoup):
 
     headline_tags = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']
 
-    print('Transforming pseudo-headlines and unwrapping inline elements...')
+#     print('Transforming pseudo-headlines and unwrapping inline elements...')
 
     # Find all headline tags (h1 through h6)
     headlines = soup.find_all(headline_tags)
@@ -143,7 +127,7 @@ def unwrap_inline_elements(soup: BeautifulSoup):
                 inline_element.unwrap()
                 inline_counter += 1
 
-    print('> Unwrapped %d inline elements and transformed %d pseudo-headlines.' % (inline_counter, pseudo_headline_counter))
+#     print('> Unwrapped %d inline elements and transformed %d pseudo-headlines.' % (inline_counter, pseudo_headline_counter))
 
     return soup
 
@@ -164,8 +148,8 @@ def parse_pre_tags(soup: BeautifulSoup):
     # Combine the results
     all_relevant_tags = pre_tags + tags_with_white_space
 
-    if all_relevant_tags:
-        print('Parsing <pre> tags (found %d)...' % len(all_relevant_tags))
+    # if all_relevant_tags:
+#         print('Parsing <pre> tags (found %d)...' % len(all_relevant_tags))
     for pre in all_relevant_tags:
         try:
             # if the element has non-NavigableString children, skip it
@@ -249,7 +233,7 @@ def replace_special_characters(soup: BeautifulSoup):
 
 
 def concatenate_text(soup: BeautifulSoup):
-    print('Concatenating text content of elements...')
+#     print('Concatenating text content of elements...')
 
     # concatenate the text of each element
     for element in soup.find_all():
@@ -283,7 +267,7 @@ def concatenate_text(soup: BeautifulSoup):
 
 
 def wrap_nonterminal_text(soup: BeautifulSoup):
-    print('Wrapping non-terminal text in <p> elements...')
+#     print('Wrapping non-terminal text in <p> elements...')
 
     # if an element has direct text as well as children, wrap the text content in <p> elements
     for element in soup.find_all():
@@ -302,7 +286,7 @@ def wrap_nonterminal_text(soup: BeautifulSoup):
 
 
 def flatten_structure(soup: BeautifulSoup):
-    print('Flattening soup...')
+#     print('Flattening soup...')
 
     # flatten the soup, unwrapping all elements that don't have text directly within them
     allowed_wrapper_tags = ['ul', 'ol', 'li', 'table', 'thead', 'tbody', 'tr', 'td', 'th']
@@ -382,7 +366,7 @@ def simplify_soup(page_source):
         soup = flatten_structure(soup)
         soup = remove_empty_elements(soup)
 
-        print('Soup simplified.')
+#         print('Soup simplified.')
 
         return soup
     except Exception as e:
@@ -394,13 +378,13 @@ def simplify_soup(page_source):
 
 def clean_policy(page) -> str:
     try:
-        print('Attempting to clean the soup...')
+#         print('Attempting to clean the soup...')
         policy = simplify_soup(page)
         if policy is None:
-            print('Cleaning the soup failed.')
+#             print('Cleaning the soup failed.')
             raise Exception
 
-        print('Cleaning the soup succeeded.')
+#         print('Cleaning the soup succeeded.')
         return policy.prettify()
 
     except Exception as e:
@@ -418,7 +402,7 @@ class Cleaner:
         self.use_batch = use_batch
 
     def execute(self):
-        print("\n>>> Cleaning %s..." % self.pkg)
+#         print("\n>>> Cleaning %s..." % self.pkg)
         logging.info("Cleaning %s..." % self.pkg)
         file_path = "%s/%s.html" % (self.in_folder, self.pkg)
 
@@ -432,6 +416,6 @@ class Cleaner:
             util.write_to_file("%s/%s.html" % (self.out_folder, self.pkg), cleaned)
 
     def skip(self):
-        print("\n>>> Skipping cleaning %s..." % self.pkg)
+#         print("\n>>> Skipping cleaning %s..." % self.pkg)
         logging.info("Skipping cleaning %s..." % self.pkg)
         util.copy_folder(self.in_folder, self.out_folder)

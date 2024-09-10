@@ -34,7 +34,7 @@ class Detector:
         self.use_batch = use_batch
 
     def execute(self) -> bool:
-        print(f"\n>>> Detecting whether {self.pkg} is a policy...")
+        # print(f"\n>>> Detecting whether {self.pkg} is a policy...")
         logging.info(f"Detecting whether {self.pkg} is a policy...")
 
         file_path = f"{self.in_folder}/{self.pkg}.html"
@@ -66,17 +66,18 @@ class Detector:
 
             util.write_to_file(f"output/{self.run_id}/{self.model}_responses/detector/{self.pkg}.txt", output)
 
-            print(f"Detector time {inference_time} s")
+#             print(f"Detector time {inference_time} s")
+            logging.info(f"Detector time {inference_time} s")
 
             # sort the output accordingly
             if output == 'true':
-                print("It's a policy, saving to file in /output/accepted...")
+#                 print("It's a policy, saving to file in /output/accepted...")
                 folder = "accepted"
             elif output == 'unknown':
-                print("Unsure whether it's a policy, saving to file in /output/unknown...")
+#                 print("Unsure whether it's a policy, saving to file in /output/unknown...")
                 folder = 'unknown'
             else:
-                print("It's not a policy, saving to file in /output/rejected...")
+#                 print("It's not a policy, saving to file in /output/rejected...")
                 folder = 'rejected'
 
             file_name = f"output/{self.run_id}/{folder}/{self.pkg}.html"
@@ -84,13 +85,13 @@ class Detector:
 
             return output == 'true'
         except Exception as e:
-            print(f"Error cleaning {self.pkg}: {e}")
+#             print(f"Error cleaning {self.pkg}: {e}")
             logging.error(f"Error cleaning {self.pkg}: {e}", exc_info=True)
             util.write_to_file(f"output/{self.run_id}/log/failed.txt", self.pkg)
 
             return False
 
     def skip(self):
-        print("\n>>> Skipping headline detection for %s..." % self.pkg)
+#         print("\n>>> Skipping headline detection for %s..." % self.pkg)
         logging.info("Skipping headline detection for %s..." % self.pkg)
         util.copy_file(f"{self.in_folder}/{self.pkg}.html", f"{self.out_folder}/{self.pkg}.html")

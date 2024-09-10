@@ -453,7 +453,7 @@ class OllamaApiWrapper(BaseApiWrapper):
         if examples is not None:
             raise ValueError('Examples are not supported for Ollama queries.')
 
-        if n is not None:
+        if n is not None and n > 1:
             raise ValueError('Multiple completions not supported for Ollama queries.')
 
         loop = asyncio.get_event_loop()

@@ -44,14 +44,14 @@ class Fixer:
         self.use_batch = use_batch
 
     def execute(self):
-        print(f"\n>>> Fixing {self.pkg}...")
+        # print(f"\n>>> Fixing {self.pkg}...")
         logging.info(f"Fixing {self.pkg}...")
         file_path = f"{self.in_folder}/{self.pkg}.html"
 
         policy = util.read_from_file(file_path)
         soup = BeautifulSoup(policy, 'html.parser')
 
-        print("Identifying headlines...")
+#         print("Identifying headlines...")
         mini_soup = replace_long_text_with_placeholders(BeautifulSoup(str(soup), 'html.parser'))
 
         token_count = len(tiktoken.get_encoding('cl100k_base').encode(str(mini_soup)))
@@ -64,10 +64,10 @@ class Fixer:
         headlines = self.identify_headlines(self.run_id, self.pkg, str(mini_soup), self.use_batch)
 
         if headlines is None:
-            print(f"> No headlines found for {self.pkg}.")
+#             print(f"> No headlines found for {self.pkg}.")
             return soup
 
-        print("Fixing headlines...")
+#         print("Fixing headlines...")
 
         for headline in headlines:
             element = soup.find(lambda tag: headline[0].strip() in tag.get_text().strip() and tag.name not in ['li', 'td', 'th'])
@@ -75,9 +75,9 @@ class Fixer:
                 element.name = headline[2]
             else:
                 logging.warning(f"Element not found! Headline: {headline}")
-                print(f"Element not found! Headline: {headline[0]}, Current tag: {headline[1]}, H-tag: {headline[2]}")
+#                 print(f"Element not found! Headline: {headline[0]}, Current tag: {headline[1]}, H-tag: {headline[2]}")
 
-        print(f"> Fixed {len(headlines)} headlines.")
+#         print(f"> Fixed {len(headlines)} headlines.")
 
         fixed_policy = soup.prettify()
 
@@ -88,7 +88,7 @@ class Fixer:
         logging.info(f"Identifying headlines for {pkg}...")
 
         if use_batch:
-            print("Using batch result...")
+#             print("Using batch result...")
             output, inference_time = api_wrapper.retrieve_batch_result_entry(run_id, self.task, f"{run_id}_{self.task}_{pkg}_0")
         else:
             system_message = util.read_from_file(f'{os.path.join(os.getcwd(), "system-prompts/fixer_system_prompt.md")}')
@@ -111,7 +111,7 @@ class Fixer:
                 # only keep the output starting at the first opening square bracket and ending at the last closing square bracket
                 output = output[output.find("[") + 1:output.rfind("]")].strip()
             except SyntaxError:
-                print(f"Error parsing output of fixer: {output}")
+#                 print(f"Error parsing output of fixer: {output}")
                 logging.error(f"Error parsing output of fixer: {output}")
                 # retry once
                 output, inference_time = self.llm_api.prompt(
@@ -129,18 +129,19 @@ class Fixer:
                     output = output.replace("`", "")
                     output = output[output.find("[") + 1:output.rfind("]")].strip()
                 except Exception as e:
-                    print(f"Error parsing output of fixer: {e}")
+#                     print(f"Error parsing output of fixer: {e}")
                     logging.error(f"Error parsing output of fixer: {e}")
                     output = None
             except Exception as e:
-                print(f"Error in fixer: {e}")
+#                 print(f"Error in fixer: {e}")
                 logging.error(f"Error in fixer: {e}")
                 output = None
 
         if output is None:
             output = "ERROR"
 
-        print(f"Headline detection time: {inference_time} s\n")
+#         print(f"Headline detection time: {inference_time} s\n")
+        logging.info(f"Headline detection time: {inference_time} s")
 
         # write the pkg and cost to "output/costs-detector.csv"
         util.add_to_file(f"output/{run_id}/{self.model}_responses/inference_times_fixer.csv", f"{pkg},{inference_time}\n")
@@ -160,7 +161,7 @@ class Fixer:
         try:
             output = ast.literal_eval(output)
         except Exception as e:
-            print(f"Error parsing output of fixer: {e}")
+#             print(f"Error parsing output of fixer: {e}")
             logging.error(f"Error parsing output of fixer: {e}", exc_info=True)
             return headlines
 
@@ -175,11 +176,13 @@ class Fixer:
                 logging.info(f"Appended new headline: {headline}, {current_tag}, {h_tag}")
                 # print(f"Headline: {headline}, Current tag: {current_tag}, H-tag: {h_tag}")
             except Exception:
-                print(f"Error parsing line: {line}")
+#                 print(f"Error parsing line: {line}")
+                logging.error(f"Error parsing line: {line}")
+                continue
 
         return headlines
 
     def skip(self):
-        print("\n>>> Skipping fixing %s..." % self.pkg)
+#         print("\n>>> Skipping fixing %s..." % self.pkg)
         logging.info("Skipping fixing %s..." % self.pkg)
         util.copy_file(f"{self.in_folder}/{self.pkg}.html", f"{self.out_folder}/{self.pkg}.html")
