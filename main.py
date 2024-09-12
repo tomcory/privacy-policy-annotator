@@ -353,44 +353,51 @@ def main():
         print(f'  batch_review: {args.batch_review}')
         print(f'  parallel_processing: {parallel_processing}')
 
-        skip_steps = any([
-            args.no_crawl, args.no_clean, args.no_detect, args.no_headline_fix,
-            args.no_parse, args.no_annotate, args.no_review,
-            args.batch_detect, args.batch_headline_fix, args.batch_annotate, args.batch_review
-        ])
-
         start_time_pipeline = timeit.default_timer()
         try:
-            run_pipeline(
-                run_id=args.run_id,
-                model=model,
-                llm_api=llm_api,
-                id_file=args.id_file,
-                single_pkg=args.pkg,
-                crawl_retries=args.crawl_retries,
-                skip_crawl=args.no_crawl if skip_steps else False,
-                skip_clean=args.no_clean if skip_steps else False,
-                skip_detect=args.no_detect if skip_steps else False,
-                skip_headline_fix=args.no_headline_fix if skip_steps else False,
-                skip_parse=args.no_parse if skip_steps else False,
-                skip_annotate=args.no_annotate if skip_steps else False,
-                skip_review=args.no_review if skip_steps else False,
-                batch_detect=args.batch_detect if skip_steps else False,
-                batch_headline_fix=args.batch_headline_fix if skip_steps else False,
-                batch_annotate=args.batch_annotate if skip_steps else False,
-                batch_review=args.batch_review if skip_steps else False,
-                parallel_processing=parallel_processing,
-            )
+            pipeline_args = {
+                'run_id': args.run_id,
+                'model': model,
+                'llm_api': llm_api,
+                'id_file': args.id_file,
+                'single_pkg': args.pkg,
+                'crawl_retries': args.crawl_retries,
+                'parallel_processing': parallel_processing,
+            }
+
+            # Only set skip and batch flags if any of them are True
+            if any([args.no_crawl, args.no_clean, args.no_detect, args.no_headline_fix,
+                    args.no_parse, args.no_annotate, args.no_review,
+                    args.batch_detect, args.batch_headline_fix, args.batch_annotate, args.batch_review]):
+                pipeline_args.update({
+                    'skip_crawl': args.no_crawl,
+                    'skip_clean': args.no_clean,
+                    'skip_detect': args.no_detect,
+                    'skip_headline_fix': args.no_headline_fix,
+                    'skip_parse': args.no_parse,
+                    'skip_annotate': args.no_annotate,
+                    'skip_review': args.no_review,
+                    'batch_detect': args.batch_detect,
+                    'batch_headline_fix': args.batch_headline_fix,
+                    'batch_annotate': args.batch_annotate,
+                    'batch_review': args.batch_review,
+                })
+
+            run_pipeline(**pipeline_args)
+
             end_time_pipeline = timeit.default_timer()
-            logging.info(f"\n\nPipeline completed in {datetime.timedelta(seconds=end_time_pipeline - start_time_pipeline)}")
-            print(f"\n\nPipeline completed in {datetime.timedelta(seconds=end_time_pipeline - start_time_pipeline)}")
+            duration = datetime.timedelta(seconds=end_time_pipeline - start_time_pipeline)
+            logging.info(f"\n\nPipeline completed in {duration}")
+            print(f"\n\nPipeline completed in {duration}")
         except Exception as e:
-            logging.error(f"Error running pipeline: {e}", exc_info=True)
-            print(f"Error running pipeline: {e}")
             end_time_pipeline = timeit.default_timer()
-            logging.info(f"\n\nPipeline failed after {datetime.timedelta(seconds=end_time_pipeline - start_time_pipeline)}")
-            print(f"\n\nPipeline failed after {datetime.timedelta(seconds=end_time_pipeline - start_time_pipeline)}")
-            raise e
+            duration = datetime.timedelta(seconds=end_time_pipeline - start_time_pipeline)
+            error_msg = f"Error running pipeline: {e}"
+            logging.error(error_msg, exc_info=True)
+            print(error_msg)
+            logging.info(f"\n\nPipeline failed after {duration}")
+            print(f"\n\nPipeline failed after {duration}")
+            raise
 
         llm_api.unload_model(model_code)
 

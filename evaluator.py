@@ -13,15 +13,18 @@ from nltk.tokenize.punkt import PunktSentenceTokenizer, PunktParameters
 from sentence_transformers import SentenceTransformer, InputExample, losses, util
 from torch.utils.data import DataLoader
 from gensim.models import FastText, KeyedVectors
+from typing import List
 
-# Global variables for the FastText model
-fasttext_model_name = "fasttext-wiki-news-subwords-300"  # FastText model for sentence embeddings
-# fasttext_model_name = "conceptnet-numberbatch-17-06-300"
-fasttext_model = None
-# Global variables for the SBERT model
-sbert_model_name = "sentence-transformers/all-mpnet-base-v2"  # SBERT model for phrase embeddings
-sbert_model = None
+# Define constants for file paths
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.join(BASE_DIR, 'embedding_data')
+MODELS_DIR = os.path.join(BASE_DIR, 'embedding_models')
+FASTTEXT_DIR = os.path.join(MODELS_DIR, 'fasttext')
+SBERT_DIR = os.path.join(MODELS_DIR, 'sbert')
 
+class ModelNotFoundError(Exception):
+    """Exception raised when a model is not found."""
+    pass
 
 class ModelManager:
     def __init__(self, fasttext_model_name="fasttext-wiki-news-subwords-300", sbert_model_name="sentence-transformers/all-mpnet-base-v2"):
@@ -29,20 +32,30 @@ class ModelManager:
         self.sbert_model_name = sbert_model_name
         self.fasttext_model = None
         self.sbert_model = None
+        self.fasttext_model_path = FASTTEXT_DIR
+        self.sbert_model_path = os.path.join(SBERT_DIR, "fine_tuned_sbert")
 
     def download_fasttext_model(self):
         print("Downloading FastText model...")
+        os.makedirs(FASTTEXT_DIR, exist_ok=True)
+        api.BASE_DIR = FASTTEXT_DIR
         fasttext_model_path = api.load(self.fasttext_model_name, return_path=True)
         print("Download complete.")
         return fasttext_model_path
 
     def load_pretrained_fasttext_model(self, model_path: str):
+        if not os.path.exists(model_path):
+            raise ModelNotFoundError(f"Model not found at {model_path}")
+        
         print("Loading pre-trained FastText model...")
         self.fasttext_model = KeyedVectors.load_word2vec_format(model_path, binary=False)
         print("Pre-trained FastText model loaded successfully.")
         return self.fasttext_model
 
     def load_finetuned_fasttext_model(self, model_path: str):
+        if not os.path.exists(model_path):
+            raise ModelNotFoundError(f"Model not found at {model_path}")
+        
         print("Loading fine-tuned FastText model...")
         self.fasttext_model = FastText.load(model_path)
         print("Fine-tuned FastText model loaded successfully.")
@@ -53,13 +66,17 @@ class ModelManager:
         print(f"SBERT model '{self.sbert_model_name}' loaded successfully.")
 
     def load_finetuned_sbert_model(self, model_path: str):
+        if not os.path.exists(model_path):
+            raise ModelNotFoundError(f"Model not found at {model_path}")
+        
+        print("Loading fine-tuned SBERT model...")
         self.sbert_model = SentenceTransformer(model_path).cuda()
         print(f"Fine-tuned SBERT model loaded successfully from '{model_path}'.")
 
     def fine_tune_fasttext_model(self, dataset_file: str):
         sentences = load_sentences(dataset_file)
         tokenized_data = [sentence.split() for sentence in sentences]
-        self.fasttext_model = FastText(vector_size=300, window=5, min_count=1)
+        self.fasttext_model = FastText(vector_size=600, window=5, min_count=1)
         self.fasttext_model.build_vocab(corpus_iterable=tokenized_data)
         print(f"Vocabulary built. Number of unique tokens: {len(self.fasttext_model.wv.index_to_key)}")
         print("Training FastText model...")
@@ -109,46 +126,6 @@ def download_tokenizer():
     print("Download complete.")
 
 
-def download_fasttext_model():
-    """Download the FastText model for sentence embeddings."""
-    print("Downloading FastText model...")
-    fasttext_model_path = api.load(fasttext_model_name, return_path=True)
-    print("Download complete.")
-    return fasttext_model_path
-
-
-def load_pretrained_fasttext_model(model_path: str):
-    """Load the pre-trained FastText model from a given path."""
-    global fasttext_model
-    print("Loading pre-trained FastText model...")
-    fasttext_model = KeyedVectors.load_word2vec_format(model_path, binary=False)
-    print("Pre-trained FastText model loaded successfully.")
-    return fasttext_model
-
-
-def load_finetuned_fasttext_model(model_path: str):
-    """Load a fine-tuned FastText model from a given path."""
-    global fasttext_model
-    print("Loading fine-tuned FastText model...")
-    fasttext_model = FastText.load(model_path)
-    print("Fine-tuned FastText model loaded successfully.")
-    return fasttext_model
-
-
-def load_sbert_model():
-    """Load the SBERT model."""
-    global sbert_model
-    sbert_model = SentenceTransformer(sbert_model_name).cuda()  # Send model to GPU
-    print(f"SBERT model '{sbert_model_name}' loaded successfully.")
-
-
-def load_finetuned_sbert_model(model_path: str):
-    """Load a fine-tuned SBERT model from a given path."""
-    global sbert_model
-    sbert_model = SentenceTransformer(model_path).cuda()
-    print(f"Fine-tuned SBERT model loaded successfully from '{model_path}'.")
-
-
 def create_custom_sentence_tokenizer():
     """Create a custom sentence tokenizer that doesn't split sentences at common legal abbreviations."""
     punkt_param = PunktParameters()
@@ -172,18 +149,19 @@ def create_custom_sentence_tokenizer():
     return PunktSentenceTokenizer(punkt_param)
 
 
-def create_dataset(tokenizer: PunktSentenceTokenizer):
+def create_dataset(tokenizer: PunktSentenceTokenizer) -> List[str]:
     """Create a dataset from the files given in the 'fasttext_dataset' folder."""
-    if not os.path.exists('../fasttext_dataset'):
-        os.mkdir('../fasttext_dataset')
-        print("Created 'fasttext_dataset' folder. Please fill it with the required data.")
+    dataset_file = os.path.join(DATA_DIR, 'dataset.txt')
+    if not os.path.exists(DATA_DIR):
+        os.mkdir(DATA_DIR)
+        print("Created 'data' folder. Please fill it with the required data.")
         sys.exit(0)
 
-    if os.path.exists('../fasttext_dataset/dataset.txt'):
+    if os.path.exists(dataset_file):
         overwrite = input("The 'dataset.txt' file already exists. Do you want to overwrite it? (yes/n) ")
         if overwrite.lower() != 'yes':
-            return
-        os.remove('../fasttext_dataset/dataset.txt')
+            return []
+        os.remove(dataset_file)
 
     def extract_lines_uppp_html(file_path: str) -> list:
         with open(file_path, 'r') as f:
@@ -199,15 +177,15 @@ def create_dataset(tokenizer: PunktSentenceTokenizer):
         with open(file_path, 'r', encoding='utf-8') as f:
             return [line.strip() for line in f if line.strip() and not line.startswith('<')]
 
-    with open('../fasttext_dataset/dataset.txt', 'w', encoding='utf-8') as dataset:
+    with open(dataset_file, 'w', encoding='utf-8') as dataset:
         total_sentences = 0
-        for file in os.listdir('../fasttext_dataset'):
+        for file in os.listdir(DATA_DIR):
             if re.match(r'^\d+.*\.html$', file):
-                lines = extract_lines_uppp_html(f'../fasttext_dataset/{file}')
+                lines = extract_lines_uppp_html(os.path.join(DATA_DIR, file))
             elif re.match(r'^\d+.*\.txt$', file) and file != 'dataset.txt':
-                lines = extract_lines_uppp_txt(f'../fasttext_dataset/{file}')
+                lines = extract_lines_uppp_txt(os.path.join(DATA_DIR, file))
             elif re.match(r'^\D.*\.html$', file):
-                lines = extract_lines_pa_txt(f'../fasttext_dataset/{file}')
+                lines = extract_lines_pa_txt(os.path.join(DATA_DIR, file))
             else:
                 continue
 
@@ -227,45 +205,10 @@ def load_sentences(file_path):
     return lines
 
 
-def fine_tune_fasttext_model(dataset_file: str):
-    """Fine-tune the FastText model using our own dataset of sentences."""
-    global fasttext_model
-
-    # Load the dataset
-    sentences = load_sentences(dataset_file)
-    tokenized_data = [sentence.split() for sentence in sentences]
-
-    # Initialize FastText model and build the vocabulary from the dataset
-    fasttext_model = FastText(vector_size=300, window=5, min_count=1)
-    fasttext_model.build_vocab(corpus_iterable=tokenized_data)
-    print(f"Vocabulary built. Number of unique tokens: {len(fasttext_model.wv.index_to_key)}")
-
-    # Fine-tune the model on the dataset
-    print("Training FastText model...")
-    fasttext_model.train(corpus_iterable=tokenized_data, total_examples=len(tokenized_data), epochs=10)
-    print("FastText model fine-tuned successfully.")
-
-    # Save the fine-tuned model
-    fasttext_model.save(f'../fasttext_dataset/{fasttext_model_name}')
-    print("FastText model saved successfully.")
-
-
 def create_input_examples(sentences):
     """Create InputExamples for unsupervised fine-tuning by duplicating sentences."""
-    # We treat each sentence as its own positive pair
-    return [InputExample(texts=[sentence, sentence]) for sentence in sentences]
-
-
-def load_dataset_for_finetuning(file_path: str):
-    """Load the dataset from a file and prepare it for fine-tuning with SBERT."""
-    with open(file_path, 'r', encoding='utf-8') as f:
-        lines = [line.strip() for line in f if line.strip()]
-
-    # Create a Hugging Face Dataset object from the list of sentences
-    dataset = Dataset.from_dict({"text": lines})
-
-    # Return list of InputExamples for SentenceTransformer fine-tuning
-    return [InputExample(texts=[line]) for line in lines]
+    examples = [InputExample(texts=[sentence, sentence]) for sentence in sentences]
+    return Dataset.from_dict({"examples": examples})
 
 
 def fasttext_phrase_similarity(manager: ModelManager, phrase1: str, phrase2: str) -> float:
@@ -356,33 +299,45 @@ def compare_phrases_sbert(manager: ModelManager, phrase1: str, phrase2: str):
 
 
 def main():
-    argparser = argparse.ArgumentParser(description="SBERT Embedding Evaluation")
-    argparser.add_argument('--create-dataset', action='store_true', help="Create a dataset from the files in the 'fasttext_dataset' folder.")
+    argparser = argparse.ArgumentParser(description="Embedding Evaluation Tool")
     argparser.add_argument('--model', default='fasttext', choices=['fasttext', 'sbert'], help="Select the model to use.")
+    argparser.add_argument('--create-dataset', action='store_true', help="Create a dataset from the files in the 'data' folder.")
     argparser.add_argument('--compare-files', nargs=2, metavar=('file1', 'file2'), help="Compare annotations in two files.")
     argparser.add_argument('--compare-phrases', nargs=2, metavar=('phrase1', 'phrase2'), help="Compare two phrases.")
     argparser.add_argument('--fine-tune', action='store_true', help="Fine-tune the pre-trained SBERT model on the created dataset.")
+    argparser.add_argument('--download-model', action='store_true', help="Download the selected model.")
     args = argparser.parse_args()
 
-    if not tokenizer_downloaded():
-        download_tokenizer()
+    # Create necessary directories
+    os.makedirs(DATA_DIR, exist_ok=True)
+    os.makedirs(MODELS_DIR, exist_ok=True)
 
     manager = ModelManager()
 
+    if args.download_model:
+        if args.model == 'fasttext':
+            manager.download_fasttext_model()
+        elif args.model == 'sbert':
+            print("SBERT model will be downloaded automatically when needed.")
+        sys.exit(0)
+
     if args.model == 'fasttext':
-        if os.path.exists(f'../fasttext_dataset/{manager.fasttext_model_name}'):
-            manager.load_finetuned_fasttext_model(f'../fasttext_dataset/{manager.fasttext_model_name}')
+        if os.path.exists(manager.fasttext_model_path):
+            manager.load_finetuned_fasttext_model(manager.fasttext_model_path)
         else:
-            fasttext_model_path = manager.download_fasttext_model()
-            manager.load_pretrained_fasttext_model(fasttext_model_path)
+            print("FastText model not found. Please download it using --download-model")
+            sys.exit(1)
     elif args.model == 'sbert':
-        if os.path.exists('../fine_tuned_sbert'):
-            manager.load_finetuned_sbert_model('../fine_tuned_sbert')
+        if os.path.exists(manager.sbert_model_path):
+            manager.load_finetuned_sbert_model(manager.sbert_model_path)
         else:
             manager.load_sbert_model()
     else:
         print("Invalid model selected. Please choose either 'fasttext' or 'sbert'.")
         sys.exit(1)
+
+    if not tokenizer_downloaded():
+        download_tokenizer()
 
     if args.create_dataset:
         tokenizer = create_custom_sentence_tokenizer()
@@ -399,18 +354,18 @@ def main():
             compare_phrases_sbert(manager, args.compare_phrases[0], args.compare_phrases[1])
     elif args.fine_tune:
         if args.model == 'fasttext':
-            if os.path.exists('../fasttext_dataset/dataset.txt'):
-                manager.fine_tune_fasttext_model('../fasttext_dataset/dataset.txt')
+            if os.path.exists(os.path.join(DATA_DIR, 'dataset.txt')):
+                manager.fine_tune_fasttext_model(os.path.join(DATA_DIR, 'dataset.txt'))
             else:
                 print("Dataset not found. Please create the dataset first using --create-dataset.")
         elif args.model == 'sbert':
-            if os.path.exists('../fasttext_dataset/dataset.txt'):
-                manager.fine_tune_sbert_unsupervised('../fasttext_dataset/dataset.txt')
+            if os.path.exists(os.path.join(DATA_DIR, 'dataset.txt')):
+                manager.fine_tune_sbert_unsupervised(os.path.join(DATA_DIR, 'dataset.txt'))
             else:
                 print("Dataset not found. Please create the dataset first using --create-dataset.")
     else:
         print("No valid arguments provided. Please use one of the following options:")
-        print("  --create-dataset: Create a dataset from the files in the 'fasttext_dataset' folder.")
+        print("  --create-dataset: Create a dataset from the files in the 'data' folder.")
         print("  --compare-files <file1> <file2>: Compare annotations in two files.")
         print("  --compare-phrases <phrase1> <phrase2>: Compare two phrases.")
         print("  --fine-tune: Fine-tune the SBERT model on the created dataset.")

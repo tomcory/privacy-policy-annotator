@@ -93,7 +93,6 @@ class Fixer:
         else:
             system_message = util.read_from_file(f'{os.path.join(os.getcwd(), "system-prompts/fixer_system_prompt.md")}')
 
-            # TODO: figure out why the LLM sometimes outputs additional text accompanying the list
             output, inference_time = self.llm_api.prompt(
                 run_id=run_id,
                 pkg=pkg,

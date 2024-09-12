@@ -9,3 +9,5 @@ manual_review
 MAPP_Corpus
 OPP-115
 fasttext_dataset
+embedding_data
+embedding_models
