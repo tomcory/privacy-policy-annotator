@@ -23,6 +23,76 @@ sbert_model_name = "sentence-transformers/all-mpnet-base-v2"  # SBERT model for 
 sbert_model = None
 
 
+class ModelManager:
+    def __init__(self, fasttext_model_name="fasttext-wiki-news-subwords-300", sbert_model_name="sentence-transformers/all-mpnet-base-v2"):
+        self.fasttext_model_name = fasttext_model_name
+        self.sbert_model_name = sbert_model_name
+        self.fasttext_model = None
+        self.sbert_model = None
+
+    def download_fasttext_model(self):
+        print("Downloading FastText model...")
+        fasttext_model_path = api.load(self.fasttext_model_name, return_path=True)
+        print("Download complete.")
+        return fasttext_model_path
+
+    def load_pretrained_fasttext_model(self, model_path: str):
+        print("Loading pre-trained FastText model...")
+        self.fasttext_model = KeyedVectors.load_word2vec_format(model_path, binary=False)
+        print("Pre-trained FastText model loaded successfully.")
+        return self.fasttext_model
+
+    def load_finetuned_fasttext_model(self, model_path: str):
+        print("Loading fine-tuned FastText model...")
+        self.fasttext_model = FastText.load(model_path)
+        print("Fine-tuned FastText model loaded successfully.")
+        return self.fasttext_model
+
+    def load_sbert_model(self):
+        self.sbert_model = SentenceTransformer(self.sbert_model_name).cuda()
+        print(f"SBERT model '{self.sbert_model_name}' loaded successfully.")
+
+    def load_finetuned_sbert_model(self, model_path: str):
+        self.sbert_model = SentenceTransformer(model_path).cuda()
+        print(f"Fine-tuned SBERT model loaded successfully from '{model_path}'.")
+
+    def fine_tune_fasttext_model(self, dataset_file: str):
+        sentences = load_sentences(dataset_file)
+        tokenized_data = [sentence.split() for sentence in sentences]
+        self.fasttext_model = FastText(vector_size=300, window=5, min_count=1)
+        self.fasttext_model.build_vocab(corpus_iterable=tokenized_data)
+        print(f"Vocabulary built. Number of unique tokens: {len(self.fasttext_model.wv.index_to_key)}")
+        print("Training FastText model...")
+        self.fasttext_model.train(corpus_iterable=tokenized_data, total_examples=len(tokenized_data), epochs=10)
+        print("FastText model fine-tuned successfully.")
+        self.fasttext_model.save(f'../fasttext_dataset/{self.fasttext_model_name}')
+        print("FastText model saved successfully.")
+
+    def fine_tune_sbert_unsupervised(self, file_path, output_dir='../fine_tuned_sbert'):
+        sentences = load_sentences(file_path)
+        train_examples = create_input_examples(sentences)
+        train_dataloader = DataLoader(train_examples, shuffle=True, batch_size=16)
+        train_loss = losses.MultipleNegativesRankingLoss(self.sbert_model)
+        self.sbert_model.fit(
+            train_objectives=[(train_dataloader, train_loss)],
+            epochs=3,
+            warmup_steps=100,
+            show_progress_bar=True
+        )
+        self.sbert_model.save(output_dir)
+        print(f"Model fine-tuned and saved successfully at {output_dir}")
+
+    def get_fasttext_phrase_embedding(self, phrase: str) -> np.ndarray:
+        words = phrase.split()
+        vectors = [self.fasttext_model.wv[word] for word in words if word in self.fasttext_model.wv]
+        if not vectors:
+            raise ValueError(f"None of the words in '{phrase}' were found in the vocabulary.")
+        return np.mean(vectors, axis=0)
+
+    def get_sbert_phrase_embedding(self, phrase: str) -> np.ndarray:
+        return self.sbert_model.encode(phrase, convert_to_tensor=True).cpu().numpy()
+
+
 def tokenizer_downloaded():
     try:
         nltk.data.find('tokenizers/punkt')
@@ -54,6 +124,7 @@ def load_pretrained_fasttext_model(model_path: str):
     fasttext_model = KeyedVectors.load_word2vec_format(model_path, binary=False)
     print("Pre-trained FastText model loaded successfully.")
     return fasttext_model
+
 
 def load_finetuned_fasttext_model(model_path: str):
     """Load a fine-tuned FastText model from a given path."""
@@ -148,11 +219,13 @@ def create_dataset(tokenizer: PunktSentenceTokenizer):
 
     print(f"Dataset created successfully. {total_sentences} sentences written to 'dataset.txt'.")
 
+
 def load_sentences(file_path):
     """Load sentences from a dataset file."""
     with open(file_path, 'r', encoding='utf-8') as f:
         lines = [line.strip() for line in f if line.strip()]
     return lines
+
 
 def fine_tune_fasttext_model(dataset_file: str):
     """Fine-tune the FastText model using our own dataset of sentences."""
@@ -176,10 +249,12 @@ def fine_tune_fasttext_model(dataset_file: str):
     fasttext_model.save(f'../fasttext_dataset/{fasttext_model_name}')
     print("FastText model saved successfully.")
 
+
 def create_input_examples(sentences):
     """Create InputExamples for unsupervised fine-tuning by duplicating sentences."""
     # We treat each sentence as its own positive pair
     return [InputExample(texts=[sentence, sentence]) for sentence in sentences]
+
 
 def load_dataset_for_finetuning(file_path: str):
     """Load the dataset from a file and prepare it for fine-tuning with SBERT."""
@@ -193,72 +268,13 @@ def load_dataset_for_finetuning(file_path: str):
     return [InputExample(texts=[line]) for line in lines]
 
 
-def fine_tune_sbert_model(dataset_file: str):
-    """Fine-tune the SBERT model using your own dataset of sentences."""
-    train_examples = load_dataset_for_finetuning(dataset_file)
-    train_dataloader = DataLoader(train_examples, shuffle=True, batch_size=16)
-
-    # Loss for fine-tuning
-    train_loss = losses.MultipleNegativesRankingLoss(sbert_model)
-
-    # Fine-tune the SBERT model
-    sbert_model.fit(train_objectives=[(train_dataloader, train_loss)], epochs=3, warmup_steps=100, show_progress_bar=True)
-
-    # Save the fine-tuned model
-    sbert_model.save('../fasttext_dataset/fine_tuned_sbert')
-    print("SBERT model fine-tuned and saved successfully.")
+def fasttext_phrase_similarity(manager: ModelManager, phrase1: str, phrase2: str) -> float:
+    vec1 = manager.get_fasttext_phrase_embedding(phrase1)
+    vec2 = manager.get_fasttext_phrase_embedding(phrase2)
+    return np.dot(vec1, vec2) / (np.linalg.norm(vec1) * np.linalg.norm(vec2))
 
 
-def fine_tune_sbert_unsupervised(file_path, output_dir='../fine_tuned_sbert'):
-    """Fine-tune SBERT on unsupervised sentence data."""
-    # Load sentences from dataset
-    sentences = load_sentences(file_path)
-
-    # Create InputExamples for each sentence (self-supervised learning)
-    train_examples = create_input_examples(sentences)
-
-    # Create DataLoader
-    train_dataloader = DataLoader(train_examples, shuffle=True, batch_size=16)
-
-    # Define MultipleNegativesRankingLoss for contrastive learning
-    train_loss = losses.MultipleNegativesRankingLoss(sbert_model)
-
-    # Fine-tune the SBERT model
-    sbert_model.fit(
-        train_objectives=[(train_dataloader, train_loss)],
-        epochs=3,  # Adjust based on your dataset size
-        warmup_steps=100,
-        show_progress_bar=True
-    )
-
-    # Save the fine-tuned model
-    sbert_model.save(output_dir)
-    print(f"Model fine-tuned and saved successfully at {output_dir}")
-
-
-def get_fasttext_phrase_embedding(phrase: str) -> np.ndarray:
-    """Generate the embedding for a given phrase using the FastText model."""
-    words = phrase.split()
-    vectors = [fasttext_model.wv[word] for word in words if word in fasttext_model.wv]
-
-    if not vectors:
-        raise ValueError(f"None of the words in '{phrase}' were found in the vocabulary.")
-
-    phrase_embedding = np.mean(vectors, axis=0)
-    return phrase_embedding
-
-
-def fasttext_phrase_similarity(phrase1: str, phrase2: str) -> float:
-    """Compute similarity between two phrases using cosine similarity with FastText embeddings."""
-    vec1 = get_fasttext_phrase_embedding(phrase1)
-    vec2 = get_fasttext_phrase_embedding(phrase2)
-
-    # Compute cosine similarity
-    similarity = np.dot(vec1, vec2) / (np.linalg.norm(vec1) * np.linalg.norm(vec2))
-    return similarity
-
-
-def compare_annotations_fasttext(file1: str, file2: str):
+def compare_annotations_fasttext(manager: ModelManager, file1: str, file2: str):
     """Compare annotations between two JSON files."""
     with open(file1, 'r', encoding='utf-8') as f1, open(file2, 'r', encoding='utf-8') as f2:
         annotations1 = json.load(f1)
@@ -278,32 +294,25 @@ def compare_annotations_fasttext(file1: str, file2: str):
         shorter_list = ann1['annotations'] if len(ann1['annotations']) < len(ann2['annotations']) else ann2['annotations']
         total_similarity = 0
         for ann in shorter_list:
-            similarity_scores = [fasttext_phrase_similarity(ann['value'], other_ann['value']) for other_ann in ann2['annotations']]
+            similarity_scores = [fasttext_phrase_similarity(manager, ann['value'], other_ann['value']) for other_ann in ann2['annotations']]
             total_similarity += max(similarity_scores)
         similarity_score = total_similarity / len(shorter_list)
         print(f"Average similarity score for passage at index {i}: {similarity_score:.4f}")
 
 
-def compare_phrases_fasttext(phrase1: str, phrase2: str):
+def compare_phrases_fasttext(manager: ModelManager, phrase1: str, phrase2: str):
     """Compare the similarity between two phrases."""
-    similarity_score = fasttext_phrase_similarity(phrase1, phrase2)
+    similarity_score = fasttext_phrase_similarity(manager, phrase1, phrase2)
     print(f"Similarity score between '{phrase1}' and '{phrase2}': {similarity_score:.4f}")
 
 
-def get_sbert_phrase_embedding(phrase: str) -> np.ndarray:
-    """Generate the embedding for a given phrase using the SBERT model."""
-    embedding = sbert_model.encode(phrase, convert_to_tensor=True).cpu().numpy()
-    return embedding  # Return the embedding as a numpy array
+def sbert_phrase_similarity(manager: ModelManager, phrase1: str, phrase2: str) -> float:
+    vec1 = manager.get_sbert_phrase_embedding(phrase1)
+    vec2 = manager.get_sbert_phrase_embedding(phrase2)
+    return util.cos_sim(vec1, vec2).item()
 
 
-def sbert_phrase_similarity(phrase1: str, phrase2: str) -> float:
-    """Compute similarity between two phrases using cosine similarity with SBERT embeddings."""
-    vec1 = get_sbert_phrase_embedding(phrase1)
-    vec2 = get_sbert_phrase_embedding(phrase2)
-    return util.cos_sim(vec1, vec2).item()  # Cosine similarity between embeddings
-
-
-def sbert_annotation_similarity(annotation1: dict, annotation2: dict) -> float:
+def sbert_annotation_similarity(manager: ModelManager, annotation1: dict, annotation2: dict) -> float:
     """Compare two annotations and return a similarity score."""
     if 'requirement' not in annotation1 or 'requirement' not in annotation2:
         logging.error(f"One of the annotations does not contain a 'requirement' key: {annotation1}, {annotation2}")
@@ -311,10 +320,10 @@ def sbert_annotation_similarity(annotation1: dict, annotation2: dict) -> float:
     if annotation1['requirement'].lower() != annotation2['requirement'].lower():
         return 0
 
-    return sbert_phrase_similarity(annotation1['value'], annotation2['value'])
+    return sbert_phrase_similarity(manager, annotation1['value'], annotation2['value'])
 
 
-def compare_annotations_sbert(file1: str, file2: str):
+def compare_annotations_sbert(manager: ModelManager, file1: str, file2: str):
     """Compare annotations between two JSON files."""
     with open(file1, 'r', encoding='utf-8') as f1, open(file2, 'r', encoding='utf-8') as f2:
         annotations1 = json.load(f1)
@@ -334,15 +343,15 @@ def compare_annotations_sbert(file1: str, file2: str):
         shorter_list = ann1['annotations'] if len(ann1['annotations']) < len(ann2['annotations']) else ann2['annotations']
         total_similarity = 0
         for ann in shorter_list:
-            similarity_scores = [sbert_annotation_similarity(ann, other_ann) for other_ann in ann2['annotations']]
+            similarity_scores = [sbert_annotation_similarity(manager, ann, other_ann) for other_ann in ann2['annotations']]
             total_similarity += max(similarity_scores)
         similarity_score = total_similarity / len(shorter_list)
         print(f"Average similarity score for passage at index {i}: {similarity_score:.4f}")
 
 
-def compare_phrases_sbert(phrase1: str, phrase2: str):
+def compare_phrases_sbert(manager: ModelManager, phrase1: str, phrase2: str):
     """Compare the similarity between two phrases."""
-    similarity_score = sbert_phrase_similarity(phrase1, phrase2)
+    similarity_score = sbert_phrase_similarity(manager, phrase1, phrase2)
     print(f"Similarity score between '{phrase1}' and '{phrase2}': {similarity_score:.4f}")
 
 
@@ -358,17 +367,19 @@ def main():
     if not tokenizer_downloaded():
         download_tokenizer()
 
+    manager = ModelManager()
+
     if args.model == 'fasttext':
-        if os.path.exists(f'../fasttext_dataset/{fasttext_model_name}'):
-            load_finetuned_fasttext_model(f'../fasttext_dataset/{fasttext_model_name}')
+        if os.path.exists(f'../fasttext_dataset/{manager.fasttext_model_name}'):
+            manager.load_finetuned_fasttext_model(f'../fasttext_dataset/{manager.fasttext_model_name}')
         else:
-            fasttext_model_path = download_fasttext_model()
-            load_pretrained_fasttext_model(fasttext_model_path)
+            fasttext_model_path = manager.download_fasttext_model()
+            manager.load_pretrained_fasttext_model(fasttext_model_path)
     elif args.model == 'sbert':
         if os.path.exists('../fine_tuned_sbert'):
-            load_finetuned_sbert_model('../fine_tuned_sbert')
+            manager.load_finetuned_sbert_model('../fine_tuned_sbert')
         else:
-            load_sbert_model()
+            manager.load_sbert_model()
     else:
         print("Invalid model selected. Please choose either 'fasttext' or 'sbert'.")
         sys.exit(1)
@@ -378,25 +389,23 @@ def main():
         create_dataset(tokenizer)
     elif args.compare_files:
         if args.model == 'fasttext':
-            compare_annotations_fasttext(args.compare_files[0], args.compare_files[1])
+            compare_annotations_fasttext(manager, args.compare_files[0], args.compare_files[1])
         elif args.model == 'sbert':
-            compare_annotations_sbert(args.compare_files[0], args.compare_files[1])
+            compare_annotations_sbert(manager, args.compare_files[0], args.compare_files[1])
     elif args.compare_phrases:
         if args.model == 'fasttext':
-            compare_phrases_fasttext(args.compare_phrases[0], args.compare_phrases[1])
+            compare_phrases_fasttext(manager, args.compare_phrases[0], args.compare_phrases[1])
         elif args.model == 'sbert':
-            compare_phrases_sbert(args.compare_phrases[0], args.compare_phrases[1])
+            compare_phrases_sbert(manager, args.compare_phrases[0], args.compare_phrases[1])
     elif args.fine_tune:
         if args.model == 'fasttext':
-            # Make sure the dataset is created before fine-tuning
             if os.path.exists('../fasttext_dataset/dataset.txt'):
-                fine_tune_fasttext_model('../fasttext_dataset/dataset.txt')
+                manager.fine_tune_fasttext_model('../fasttext_dataset/dataset.txt')
             else:
                 print("Dataset not found. Please create the dataset first using --create-dataset.")
         elif args.model == 'sbert':
-            # Make sure the dataset is created before fine-tuning
             if os.path.exists('../fasttext_dataset/dataset.txt'):
-                fine_tune_sbert_unsupervised('../fasttext_dataset/dataset.txt')
+                manager.fine_tune_sbert_unsupervised('../fasttext_dataset/dataset.txt')
             else:
                 print("Dataset not found. Please create the dataset first using --create-dataset.")
     else:

@@ -42,7 +42,7 @@ class BaseProcessor:
                     system_msg=system_message,
                     user_msg=json.dumps(passage),
                     max_tokens=2048,
-                    context_window=6144,
+                    context_window=8192,
                     json_format=True
                 )
 
@@ -56,7 +56,7 @@ class BaseProcessor:
                         system_msg=system_message,
                         user_msg=json.dumps(passage),
                         max_tokens=2048,
-                        context_window=6144,
+                        context_window=8192,
                         json_format=True
                     )
 
@@ -64,7 +64,7 @@ class BaseProcessor:
             try:
                 passage = json.loads(result)
             except json.JSONDecodeError:
-                print(result)
+                logging.error(f"Error parsing result for {self.pkg} at index {index}: {result}", exc_info=True)
                 raise json.JSONDecodeError
             output.append(passage)
 
@@ -93,7 +93,7 @@ class BaseProcessor:
             system_msg=system_message,
             user_msgs=user_msgs,
             max_tokens=4096,
-            context_window=6144,
+            context_window=8192,
             json_format=True
         )
 
@@ -108,7 +108,7 @@ class BaseProcessor:
             output.append(passage)
 
 #         print(f"{self.task.capitalize()} time: {total_inference_time} s\n")
-            logging.info(f"{self.task.capitalize()} time: {total_inference_time} s")
+        logging.info(f"{self.task.capitalize()} time: {total_inference_time} s")
 
         util.add_to_file(f"output/{self.run_id}/{self.model}_responses/processing_times_{self.task}.csv", f"{self.pkg},{total_inference_time}\n")
         util.write_to_file(self.out_folder + f"/{self.model}.{self.pkg}.json", json.dumps(output, indent=4))

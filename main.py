@@ -116,55 +116,58 @@ def run_pipeline(
         annotator = Annotator(run_id, pkg, llm_api, model)
         reviewer = Reviewer(run_id, pkg, llm_api, model)
 
+        pipeline_start = timeit.default_timer()
+
         if not skip_clean:
-            print(f"\rCleaning...{' ' * 10}", end='', flush=True)
+            util.print_status("Cleaning...")
             cleaner.execute()
         else:
             cleaner.skip()
 
         if not skip_detect:
-            print(f"\rDetecting...{' ' * 10}", end='', flush=True)
+            util.print_status("Detecting...")
             is_a_policy = detector.execute()
             if not is_a_policy:
-                print(f"Package {pkg} is not a policy. Skipping further processing.\n")
+                util.print_status(f"Package {pkg} is not a policy. Skipping further processing.\n\n")
                 logging.warning(f"Package {pkg} is not a policy. Skipping further processing.")
                 return
         else:
             detector.skip()
 
         if not skip_headline_fix:
-            print(f"\rFixing headlines...{' ' * 10}", end='', flush=True)
+            util.print_status("Fixing headlines...")
             fixer.execute()
         else:
             fixer.skip()
 
         if not skip_parse:
-            print(f"\rParsing...{' ' * 10}", end='', flush=True)
+            util.print_status("Parsing...")
             parser.execute()
         else:
             parser.skip()
 
         if not skip_annotate:
             if parallel_processing:
-                print(f"\rAnnotating in parallel...{' ' * 10}", end='', flush=True)
+                util.print_status("Annotating in parallel...")
                 annotator.execute_parallel()
             else:
-                print(f"\rAnnotating...{' ' * 10}", end='', flush=True)
+                util.print_status("Annotating...")
                 annotator.execute()
         else:
             annotator.skip()
 
         if not skip_review:
             if parallel_processing:
-                print(f"\rReviewing in parallel...{' ' * 10}", end='', flush=True)
+                util.print_status("Reviewing in parallel...")
                 reviewer.execute_parallel()
             else:
-                print(f"\rReviewing...{' ' * 10}", end='', flush=True)
+                util.print_status("Reviewing...")
                 reviewer.execute()
         else:
             reviewer.skip()
 
-        print(f"\nPackage {pkg} processed.\n")
+        pipeline_end = timeit.default_timer()
+        print(f"\nPackage {pkg} processed in {datetime.timedelta(seconds=pipeline_end - pipeline_start)}\n")
 
     if single_pkg is not None:
         process_package(single_pkg)

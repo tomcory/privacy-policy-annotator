@@ -139,3 +139,8 @@ def copy_file(src: str, dest: str):
         raise e
     else:
         logging.info(f"Successfully copied file from {src} to {dest}.")
+
+
+def print_status(text: str):
+    print(f"\r{' ' * 20}", end='', flush=True)
+    print(f"\r{text}", end='', flush=True)

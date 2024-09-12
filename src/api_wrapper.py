@@ -64,7 +64,7 @@ OPENAI_MODELS = {
     }
 }
 
-TEMPERATURE = 0.4
+TEMPERATURE = 0.5
 MAX_TOKENS = 500
 TOP_P = 0.9
 TOP_K = 40
@@ -88,7 +88,7 @@ def _process_ollama_response(response, llm_name: str, json_format: bool = True) 
         else:
             return response['response']
     except (json.JSONDecodeError, KeyError) as e:
-        print(f'Error decoding JSON: {e}. Continuing with empty dictionary...')
+        print(f'\nError decoding JSON: {e}. Continuing with empty dictionary...')
         logging.error(f'Error decoding JSON for model {llm_name}: {e}. Raw model output: {response["response"]}', exc_info=True)
         return {}
 
@@ -116,14 +116,16 @@ async def _send_ollama_request(
     """
 
     # calculate the token count of the prompt
-    encoding = tiktoken.get_encoding('cl100k_base')
+    encoding = tiktoken.get_encoding('o200k_base')
     prompt_token_count = len(encoding.encode(prompt))
     system_prompt_token_count = len(encoding.encode(system_prompt))
 
     logging.debug(
         f'Querying model {model_code} with:\nUser prompt: {prompt}\nSystem prompt: {system_prompt[:100]}...\nOptions: {options}\n'
         f'Output format: {output_format if output_format else "default"}\n'
-        f'User prompt token count: {prompt_token_count}\nSystem prompt token count: {system_prompt_token_count}')
+        f'User prompt token count: {prompt_token_count}\nSystem prompt token count: {system_prompt_token_count}'
+    )
+    logging.info(f'Querying model {model_code} with {prompt_token_count + system_prompt_token_count} tokens...')
 
     try:
         response = _process_ollama_response(

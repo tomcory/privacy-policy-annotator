@@ -173,7 +173,7 @@ class Fixer:
                 current_tag = current_tag.strip().replace("<", "").replace(">", "")
                 h_tag = h_tag.strip().replace("<", "").replace(">", "")
                 headlines.append((headline, current_tag, h_tag))
-                logging.info(f"Appended new headline: {headline}, {current_tag}, {h_tag}")
+                logging.debug(f"Appended new headline: {headline}, {current_tag}, {h_tag}")
                 # print(f"Headline: {headline}, Current tag: {current_tag}, H-tag: {h_tag}")
             except Exception:
 #                 print(f"Error parsing line: {line}")

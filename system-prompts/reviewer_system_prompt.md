@@ -32,12 +32,13 @@ The privacy requirements defined by the GDPR are:
    - Ensure that all categories (e.g., "Data Categories," "Processing Purpose") are correctly assigned and that the structure contains the keys "requirement," "value," "generalized_value" and "performed."
 
 2. **Score Assignment:** After reviewing the annotations, assign a score between 0 and 1 based on the following:
-   - **1:** The annotations are fully accurate, capturing all relevant data references without any over-annotation or omissions.
+   - **1.0:** The annotations are fully accurate, capturing all relevant data references without any over-annotation or omissions.
    - **0.5 to 0.9:** The annotations are mostly correct but contain minor issues, such as missing some data references or slight over-annotation.
    - **Below 0.5:** Significant issues are present, such as missed key data references or major over-annotations.
-   - **0:** The annotations are entirely inaccurate or fail to identify any correct data references.
+   - **0.0:** The annotations are entirely inaccurate or fail to identify any correct data references.
+   - If there ist nothing in the passage to be annotated and this is correctly identified, the score should be 1.0.
 
-3. **Revised Annotation Object:** Provide a revised version of the annotation object based on your review. If the original annotations are accurate, return them unchanged. However, you **must always return** a "revised" object that includes the original annotations, even if no changes are required. This field must never be empty.
+3. **Revised Annotation Object:** Provide a revised version of the annotations list based on your review. If the original annotations are accurate, return them unchanged. However, you **must always return** a "revised" object that includes the original annotations, even if no changes are required. This field must never be empty. Ensure that each object in the annotations list contains the keys "requirement," "value," "generalized_value," and "performed," each with valid values. The annotations must only annotate the "passage" text, and not text from the "context" field. The context is solely for reference.
 
 **Guidelines for Review:**
 
