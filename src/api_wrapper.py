@@ -299,6 +299,20 @@ class OllamaApiWrapper(BaseApiWrapper):
         """
 
         return self._fetch_downloaded_models()
+    
+    def get_model_info(self, model: str) -> dict:
+        """
+        Retrieve model information from Ollama.
+        
+        :param model: String: Model name
+        :return: Dict: Model information
+        """
+        if self.client_type != 'ollama' or not isinstance(self.client, AsyncClient):
+            raise RuntimeError('get_model_info is only available for Ollama clients.')
+
+        loop = asyncio.get_event_loop()
+        model_info = loop.run_until_complete(self.client.show(model))
+        return model_info
 
     def load_model(self, model: str):
         """
@@ -381,6 +395,14 @@ class OllamaApiWrapper(BaseApiWrapper):
 
         start_time = timeit.default_timer()
 
+        model_info = self.get_model_info(model)
+        model_size = model_info['model_info']['general.parameter_count']
+        logging.debug(f'Model {model} has {model_size} parameters.')
+
+        if model_size >= 20_000_000_000 and task in ['annotator', 'reviewer', 'fixer']:
+            context_window = min(context_window, 6144)
+            logging.debug(f'Model {model} has more than 20B parameters, setting context window to {context_window}')
+
         options = {
             'temperature': temperature,
             'max_tokens': max_tokens,
@@ -461,6 +483,14 @@ class OllamaApiWrapper(BaseApiWrapper):
         loop = asyncio.get_event_loop()
 
         start_time = timeit.default_timer()
+
+        model_info = self.get_model_info(model)
+        model_size = model_info['model_info']['general.parameter_count']
+        logging.debug(f'Model {model} has {model_size} parameters.')
+
+        if model_size >= 20_000_000_000 and task in ['annotator', 'reviewer', 'fixer']:
+            context_window = min(context_window, 6144)
+            logging.debug(f'Model {model} has more than 20B parameters, setting context window to {context_window}')
 
         options = {
             'temperature': temperature,
