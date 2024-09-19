@@ -63,15 +63,25 @@ def _prepare_messages(system_msg: str, user_msg: str, examples: list[tuple[str, 
 
 
 class ApiOpenAI:
-    def __init__(self, run_id: str, default_model: str = 'gpt-4o-mini'):
+    def __init__(self, run_id: str, default_model: str = None):
         self.run_id = run_id
-        self.default_model = models[default_model]
+
+        if default_model is not None:
+            self.default_model = models[default_model]
+        else:
+            self.default_model = None
 
         self.supports_batch = True
         self.supports_parallel = False
 
         load_dotenv()
         self.client = OpenAI()
+
+    def setup(self):
+        print("Set up OpenAI API client.")
+
+    def close(self):
+        print("Closed OpenAI API client.")
 
     def prompt(
             self,

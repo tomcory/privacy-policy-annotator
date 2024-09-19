@@ -325,7 +325,11 @@ def _prepare_messages(system_msg: str, user_msg: str, examples: list[tuple[str, 
 class ApiOllama:
     def __init__(self, run_id: str, default_model: str = None):
         self.run_id = run_id
-        self.default_model = models[default_model]
+
+        if default_model is not None:
+            self.default_model = models[default_model]
+        else:
+            self.default_model = None
 
         self.supports_batch = False
         self.supports_parallel = True
@@ -333,6 +337,18 @@ class ApiOllama:
         self.downloaded_models = [model['name'] for model in ollama.list()['models']]
 
         self.client = AsyncClient()
+
+    def setup(self):
+        # check whether the default model is downloaded and download it if necessary
+        if self.default_model['name'] not in self.downloaded_models:
+            self._download_model(self.default_model['name'])
+
+        self._load_model(self.default_model['name'])
+        print(f'Set up Ollama API client with model {self.default_model["name"]}.')
+
+    def close(self):
+        self._unload_model(self.default_model['name'])
+        print(f'Closed Ollama API client with model {self.default_model["name"]}.')
 
     def prompt(
             self,
@@ -360,6 +376,9 @@ class ApiOllama:
             if self.default_model is None:
                 raise ValueError("model must be provided when default_model is not set")
             model = self.default_model
+
+        if model not in self.downloaded_models:
+            self._download_model(model['name'])
 
         encoding = tiktoken.get_encoding(model['encoding'])
 
@@ -526,10 +545,24 @@ class ApiOllama:
     def get_batch_results(self, task: str, batch_metadata_file: str = "batch_metadata.json"):
         raise NotImplementedError("Batch processing is not supported by Ollama")
 
-    def load_model(self, model: str):
+    def _download_model(self, model: str):
+        """
+        Download the specified model by sending an empty query to the server.
+
+        :param model: String: Model code to download
+        """
+
+        print(f'Downloading model {model}...')
+        try:
+            ollama.pull(model)
+            print(f'Downloaded model {model}')
+        except Exception as e:
+            print(f'Error downloading model {model}: {e}')
+            raise e
+
+    def _load_model(self, model: str):
         """
         Load the specified model by sending an empty query to the server.
-        This method is only callable if the client is an Ollama client.
 
         :param model: String: Model code to load
         """
@@ -538,10 +571,9 @@ class ApiOllama:
         loop = asyncio.get_event_loop()
         loop.run_until_complete(_query_ollama(model, "", "", self.client))
 
-    def unload_model(self, model: str):
+    def _unload_model(self, model: str):
         """
         Unload the specified model by sending an empty query to the server with a keep_alive value of 0.
-        This method is only callable if the client is an Ollama client.
 
         :param model: String: Model code to unload
         """
