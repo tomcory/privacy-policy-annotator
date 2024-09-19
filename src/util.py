@@ -38,11 +38,6 @@ def prepare_output(run_id: str, overwrite: bool = False):
         'output/%s/batch/fixer' % run_id,
         'output/%s/batch/annotator' % run_id,
         'output/%s/batch/reviewer' % run_id,
-        'output/%s/gpt_responses' % run_id,
-        'output/%s/gpt_responses/detector' % run_id,
-        'output/%s/gpt_responses/fixer' % run_id,
-        'output/%s/gpt_responses/annotator' % run_id,
-        'output/%s/gpt_responses/reviewer' % run_id
     ]
 
     for path in path_list:
@@ -50,8 +45,7 @@ def prepare_output(run_id: str, overwrite: bool = False):
             os.mkdir(path)
 
 
-def load_policy_json(run_id: str, pkg: str, task: str):
-    file_path = 'output/%s/%s/%s.json' % (run_id, task, pkg)
+def load_policy_json(file_path: str):
     try:
         with open(file_path, 'r') as file:
             return json.load(file)

@@ -1,6 +1,9 @@
 import json
+from typing import Union
 
 from src import util, api_wrapper
+from src.api_ollama import ApiOllama
+from src.api_openai import ApiOpenAI
 
 system_msg = '''Your task is to annotate the specific words or phrases in given text passages (extracted from privacy 
 policies) that fulfill any of the following transparency requirements as defined by GDPR Articles 13 and 14: """ 1) 
@@ -42,7 +45,7 @@ reduction to omit repeated elements that are relevant to multiple annotated phra
 annotation (e.g. “You have the right to access and delete your data” addresses the **Right to Access** with “You have 
 the right to access [[and delete]] your data” as well as **The right to Erasure** with “You have the right to 
 [[access and]] delete your data”, so “You have the right to” and “your data” is included in both annotations). 
-Structure your annotations as JSON objects in a list. Each object should have the following keys: - "requirement": 
+Structure your annotations as a JSON list of objects. Each object should have the following keys: - "requirement": 
 The transparency requirement that the annotated word or phrase fulfils. - "value": The annotated word or phrase. - 
 "performed": A boolean indicating whether the stated activity is performed or explicitly not performed (e.g. "we do 
 not collect your name").'''.replace('\n', '')
@@ -92,60 +95,100 @@ example_4_in = ''''''
 
 example_4_out = ''''''
 
-task = "annotator"
-model = api_wrapper.models['gpt-4o-mini']
 
-
-def execute(run_id: str, pkg: str, in_folder: str, out_folder: str, use_batch: bool = False):
+def execute(
+        run_id: str,
+        pkg: str,
+        in_folder: str,
+        out_folder: str,
+        task: str,
+        client: Union[ApiOpenAI, ApiOllama],
+        model: dict = None,
+        use_batch_result: bool = False,
+        parallel_prompt: bool = False
+):
     print(f"Annotating {pkg}...")
 
-    policy = util.load_policy_json(run_id, pkg, 'json')
+    policy = util.load_policy_json(f'{in_folder}/{pkg}.json')
     if policy is None:
         return None
 
+    print(f"The policy has {len(policy)} passages.")
+
     output = []
     total_cost = 0
+    total_time = 0
 
-    for index, passage in enumerate(policy):
-        if use_batch:
-            result, cost = api_wrapper.retrieve_batch_result_entry(run_id, task, f"{run_id}_{task}_{pkg}_{index}")
-        else:
-            result, cost = api_wrapper.prompt(
-                run_id=run_id,
-                pkg=pkg,
-                task=task,
-                model=model,
-                system_msg=system_msg,
-                user_msg=json.dumps(passage),
-                examples=[(example_1_in, example_1_out)]
-            )
+    if parallel_prompt:
+        # annotate all passages of the policy in parallel
+        results, total_cost, total_time = client.prompt_parallel(
+            pkg=pkg,
+            task=task,
+            model=model,
+            system_msg=system_msg,
+            user_msgs=[json.dumps(passage) for passage in policy],
+            examples=[(example_1_in, example_1_out)]
+        )
 
-        total_cost += cost
-        try:
-            passage['annotations'] = json.loads(result)
-        except json.JSONDecodeError:
-            print(result)
-            raise json.JSONDecodeError
-        output.append(passage)
+        # iterate over each result and add the annotations to the policy
+        for index, result in enumerate(results):
+            try:
+                policy[index]['annotations'] = json.loads(result)
+            except json.JSONDecodeError:
+                print(result)
+                raise json.JSONDecodeError
+            output.append(policy[index])
+    else:
+        # iterate over each passage in the policy and annotate it or retrieve the annotation from the batch result
+        for index, passage in enumerate(policy):
+            print(f"Annotating passage {index + 1} of {len(policy)}...")
+            if use_batch_result:
+                # retrieve the annotation from the batch result
+                result, cost, time = client.retrieve_batch_result_entry(run_id, task, f"{run_id}_{task}_{pkg}_{index}")
+            else:
+                # annotate the passage
+                result, cost, time = client.prompt(
+                    pkg=pkg,
+                    task=task,
+                    model=model,
+                    response_format='text',
+                    system_msg=system_msg,
+                    user_msg=json.dumps(passage),
+                    examples=[(example_1_in, example_1_out)]
+                )
+
+            total_cost += cost
+            total_time += time
+
+            # add the annotations to the policy
+            try:
+                passage['annotations'] = json.loads(result)
+            except json.JSONDecodeError:
+                print(result)
+                raise json.JSONDecodeError
+            output.append(passage)
 
     print(f"Annotation cost: {total_cost}")
+    print(f"Annotation time: {total_time}")
 
-    with open(f"output/{run_id}/gpt_responses/costs_annotator.csv", "a") as f:
-        f.write(f"{pkg},{total_cost}\n")
-
-    util.write_to_file(f"output/{run_id}/annotated/{pkg}.json", json.dumps(output, indent=4))
+    util.write_to_file(f"{out_folder}/{pkg}.json", json.dumps(output, indent=4))
 
 
-def prepare_batch(run_id: str, pkg: str, in_folder: str):
-    policy = util.load_policy_json(run_id, pkg, 'json')
+def prepare_batch(
+        pkg: str,
+        in_folder: str,
+        task: str,
+        client: Union[ApiOpenAI, ApiOllama],
+        model: dict
+):
+    policy = util.load_policy_json(f'{in_folder}/{pkg}.json')
     if policy is None:
         return None
 
     entries = []
 
     for index, passage in enumerate(policy):
-        entry = api_wrapper.prepare_batch_entry(
-            run_id=run_id,
+        entry = client.prepare_batch_entry(
             pkg=pkg,
             task=task,
             model=model,

@@ -12,46 +12,35 @@ system_msg = """Your task is to analyze a given text snippet and determine if th
     it likely is not, and 'unknown' if there's not enough information to decide. Do not provide any additional 
     explanations or context in your response.""".replace('\n', '')
 
-task = "detector"
 
-
-def execute(run_id: str, pkg: str, in_folder: str, out_folder: str, model: dict, api_client: Union[ApiOpenAI, ApiOllama], use_batch: bool = False, use_parallel: bool = False):
+def execute(
+        run_id: str,
+        pkg: str,
+        in_folder: str,
+        out_folder: str,
+        task: str,
+        client: Union[ApiOpenAI, ApiOllama],
+        model: dict = None,
+        use_batch_result: bool = False,
+        use_parallel: bool = False
+):
     print(f">>> Detecting whether {pkg} is a policy...")
     file_path = f"{in_folder}/{pkg}.html"
 
     try:
         policy = util.read_from_file(file_path)
 
-        if use_batch:
-            output, cost, time = api_client.retrieve_batch_result_entry(run_id, task, f"{run_id}_{task}_{pkg}_0")
+        if use_batch_result:
+            output, cost, time = client.retrieve_batch_result_entry(run_id, task, f"{run_id}_{task}_{pkg}_0")
         else:
-            if use_parallel:
-                output, cost, time = api_client.prompt_parallel(
-                    pkg=pkg,
-                    task=task,
-                    model=model,
-                    system_msg=system_msg,
-                    user_msg=_generate_excerpt(policy),
-                    max_tokens=1
-                )
-            else:
-                output, cost, time = api_client.prompt(
-                    pkg=pkg,
-                    task=task,
-                    model=model,
-                    system_msg=system_msg,
-                    user_msg=_generate_excerpt(policy),
-                    max_tokens=1
-                )
-
-        # write the pkg and cost to "output/costs-detector.csv"
-        with open(f"output/{run_id}/gpt_responses/costs_detector.csv", "a") as f:
-            f.write(f"{pkg},{cost}\n")
-
-        with open(f"output/{run_id}/gpt_responses/detector/{pkg}.txt", "w") as f:
-            f.write(output)
-
-        print(f"Detector cost {cost} cents.")
+            output, cost, time = client.prompt(
+                pkg=pkg,
+                task=task,
+                model=model,
+                system_msg=system_msg,
+                user_msg=_generate_excerpt(policy, model),
+                max_tokens=1
+            )
 
         # sort the output accordingly
         if output == 'true':
@@ -71,24 +60,30 @@ def execute(run_id: str, pkg: str, in_folder: str, out_folder: str, model: dict,
         util.write_to_file(f"output/{run_id}/log/failed.txt", pkg)
 
 
-def prepare_batch(run_id: str, pkg: str, in_folder: str, model: dict, api_client: Union[ApiOpenAI, ApiOllama]):
+def prepare_batch(
+        pkg: str,
+        in_folder: str,
+        task: str,
+        client: Union[ApiOpenAI, ApiOllama],
+        model: dict
+):
     html = util.read_from_file(f"{in_folder}/{pkg}.html")
     if html is None or html == '':
         return None
 
-    batch_entry = api_client.prepare_batch_entry(
+    batch_entry = client.prepare_batch_entry(
         pkg=pkg,
         task=task,
         model=model,
         system_msg=system_msg,
-        user_msg=str(_generate_excerpt(html))
+        user_msg=str(_generate_excerpt(html, model))
     )
 
     return [batch_entry]
 
 
-def _generate_excerpt(html: str):
-    encoding = tiktoken.get_encoding('cl100k_base')
+def _generate_excerpt(html: str, model: dict):
+    encoding = tiktoken.get_encoding(model['encoding'])
 
     html = BeautifulSoup(html, 'html.parser').get_text()
     encoded_html = encoding.encode(html)

@@ -1,7 +1,10 @@
+from typing import Union
+
 from bs4 import BeautifulSoup, NavigableString
 
 from src import api_wrapper, util
-
+from src.api_ollama import ApiOllama
+from src.api_openai import ApiOpenAI
 
 system_msg = '''Your task is to analyze a simplified HTML document of a privacy policy, identify headlines 
 that do not have the correct tag (e.g. <p> instead of <h2>), and determine the correct h* tag for the 
@@ -14,11 +17,18 @@ headline should have in the context of the given document (h1, h2, h3, 54, h5, h
 list where each entry is on a new line formatted as "<headline>,<current tag of the element>,<h*-tag>". Do 
 not number the entries.'''.replace('\n', '')
 
-task = "fixer"
-model = api_wrapper.models['gpt-4o']
 
-
-def execute(run_id: str, pkg: str, in_folder: str, out_folder: str, use_batch: bool = False):
+def execute(
+        run_id: str,
+        pkg: str,
+        in_folder: str,
+        out_folder: str,
+        task: str,
+        client: Union[ApiOpenAI, ApiOllama],
+        model: dict = None,
+        use_batch_result: bool = False,
+        parallel_prompt: bool = False
+):
     print(f">>> Fixing {pkg}...")
     file_path = f"{in_folder}/{pkg}.html"
 
@@ -26,8 +36,7 @@ def execute(run_id: str, pkg: str, in_folder: str, out_folder: str, use_batch: b
     soup = BeautifulSoup(policy, 'html.parser')
 
     print("Identifying headlines...")
-    mini_soup = replace_long_text_with_placeholders(BeautifulSoup(str(soup), 'html.parser'))
-    headlines = identify_headlines(run_id, pkg, str(mini_soup), use_batch)
+    headlines = _identify_headlines(run_id, pkg, str(soup), task, client, model, use_batch_result)
 
     if headlines is None:
         print(f"> No headlines found for {pkg}.")
@@ -53,19 +62,24 @@ def execute(run_id: str, pkg: str, in_folder: str, out_folder: str, use_batch: b
     util.write_to_file(file_name, fixed_policy)
 
 
-def prepare_batch(run_id: str, pkg: str, in_folder: str):
+def prepare_batch(
+        pkg: str,
+        in_folder: str,
+        task: str,
+        client: Union[ApiOpenAI, ApiOllama],
+        model: dict
+):
     html = util.read_from_file(f"{in_folder}/{pkg}.html")
     if html is None or html == "":
         return None
 
     soup = BeautifulSoup(html, 'html.parser')
-    mini_soup = replace_long_text_with_placeholders(BeautifulSoup(str(soup), 'html.parser'))
+    mini_soup = _replace_long_text_with_placeholders(BeautifulSoup(str(soup), 'html.parser'))
 
-    batch_entry = api_wrapper.prepare_batch_entry(
+    batch_entry = client.prepare_batch_entry(
         model=model,
         system_msg=system_msg,
         user_msg=str(mini_soup),
-        run_id=run_id,
         pkg=pkg,
         task=task
     )
@@ -73,7 +87,7 @@ def prepare_batch(run_id: str, pkg: str, in_folder: str):
     return [batch_entry]
 
 
-def replace_long_text_with_placeholders(soup: BeautifulSoup):
+def _replace_long_text_with_placeholders(soup: BeautifulSoup):
     # replace all text content longer than 10 words with a placeholder
     for element in soup.find_all():
         for child in element.children:
@@ -96,32 +110,23 @@ def replace_long_text_with_placeholders(soup: BeautifulSoup):
     return soup
 
 
-def identify_headlines(run_id: str, pkg: str, html: str, use_batch: bool = False) -> (str, float):
+def _identify_headlines(run_id: str, pkg: str, html: str, task: str, client: Union[ApiOpenAI, ApiOllama], model: dict, use_batch: bool) -> (str, float):
 
     if use_batch:
         print("Using batch result...")
-        output, cost = api_wrapper.retrieve_batch_result_entry(run_id, task, f"{run_id}_{task}_{pkg}_0")
+        output, cost = client.retrieve_batch_result_entry(task, f"{run_id}_{task}_{pkg}_0")
     else:
-        output, cost = api_wrapper.prompt(
-            run_id=run_id,
+        mini_soup = str(_replace_long_text_with_placeholders(BeautifulSoup(html, 'html.parser')))
+        output, cost, time = client.prompt(
             pkg=pkg,
             task=task,
             model=model,
             system_msg=system_msg,
-            user_msg=html
+            user_msg=mini_soup
         )
 
     if output is None:
-        output = "ERROR"
-
-    print(f"Cost: {cost}€")
-
-    # write the pkg and cost to "output/costs-detector.csv"
-    with open(f"output/{run_id}/gpt_responses/costs_fixer.csv", "a") as f:
-        f.write(f"{pkg},{cost}\n")
-
-    with open(f"output/{run_id}/gpt_responses/fixer/{pkg}.txt", "w") as f:
-        f.write(output)
+        return []
 
     # parse "output" into a list of 3-tuples: (headline, current_tag, h_tag)
     # split the string into lines and then split each line by the comma character
@@ -129,10 +134,6 @@ def identify_headlines(run_id: str, pkg: str, html: str, use_batch: bool = False
     # current_tag the second to last entry
     # reconstruct the headline by joining the remaining entries with commas
     headlines = []
-
-    if output == "ERROR":
-        return headlines
-
     for line in output.split("\n"):
         if line == "":
             continue

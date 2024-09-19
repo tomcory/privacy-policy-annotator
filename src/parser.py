@@ -1,9 +1,12 @@
 import json
+from typing import Union
 
 import tiktoken
 from bs4 import BeautifulSoup, NavigableString, Tag, PageElement
 
 from src import util
+from src.api_ollama import ApiOllama
+from src.api_openai import ApiOpenAI
 
 BLOCK_TYPES = {
     'td': 'table_cell',
@@ -20,7 +23,17 @@ BLOCK_TYPES = {
 }
 
 
-def execute(run_id: str, pkg: str, in_folder: str, out_folder: str, use_batch: bool = False):
+def execute(
+        run_id: str,
+        pkg: str,
+        in_folder: str,
+        out_folder: str,
+        task: str,
+        client: Union[ApiOpenAI, ApiOllama],
+        model: dict = None,
+        use_batch_result: bool = False,
+        use_parallel: bool = False
+):
     print(">>> Parsing %s..." % pkg)
     file_path = "%s/%s.html" % (in_folder, pkg)
 

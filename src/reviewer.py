@@ -1,6 +1,9 @@
 import json
+from typing import Union
 
 from src import api_wrapper
+from src.api_ollama import ApiOllama
+from src.api_openai import ApiOpenAI
 
 system_msg = '''Your task is to evaluate annotations of specific words or phrases in given text passages (extracted 
 from privacy policies) that fulfill any of the following transparency requirements as defined by GDPR Articles 13 and 
@@ -67,11 +70,27 @@ false }, { "requirement": "Data Categories", "value": "gender", "performed": fal
 example_2_out = '''ok'''.replace('\n', '')
 
 
-def execute(run_id: str, pkg: str, in_folder: str, out_folder: str, use_batch: bool = False):
-    print(">>> Annotating %s..." % pkg)
+def execute(
+        run_id: str,
+        pkg: str,
+        in_folder: str,
+        out_folder: str,
+        task: str,
+        client: Union[ApiOpenAI, ApiOllama],
+        model: dict = None,
+        use_batch_result: bool = False,
+        use_parallel: bool = False
+):
+    print(">>> Reviewing %s..." % pkg)
 
 
-def prepare_batch(run_id: str, pkg: str):
+def prepare_batch(
+        pkg: str,
+        in_folder: str,
+        task: str,
+        client: Union[ApiOpenAI, ApiOllama],
+        model: dict
+):
     policy = None#load_policy(run_id, pkg)
     if policy is None:
         return None
@@ -79,14 +98,13 @@ def prepare_batch(run_id: str, pkg: str):
     entries = []
 
     for index, passage in enumerate(policy):
-        entry = api_wrapper.prepare_batch_entry(
-            model=api_wrapper.models['gpt-4o-mini'],
+        entry = client.prepare_batch_entry(
+            model=model,
             system_msg=system_msg,
             user_msg=json.dumps(passage),
             examples=[(example_1_in, example_1_out)],
             n=1,
             max_tokens=1,
-            run_id=run_id,
             pkg=pkg,
             task='annotator',
             entry_id=index

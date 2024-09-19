@@ -1,13 +1,26 @@
 import re
 import traceback
+from typing import Union
 
 import chardet
 from bs4 import NavigableString, Comment, BeautifulSoup, Tag
 
 from src import util
+from src.api_ollama import ApiOllama
+from src.api_openai import ApiOpenAI
 
 
-def execute(run_id: str, pkg: str, in_folder: str, out_folder: str, use_batch: bool = False):
+def execute(
+        run_id: str,
+        pkg: str,
+        in_folder: str,
+        out_folder: str,
+        task: str,
+        client: Union[ApiOpenAI, ApiOllama],
+        model: dict = None,
+        use_batch_result: bool = False,
+        use_parallel: bool = False
+):
     print(">>> Cleaning %s..." % pkg)
     file_path = "%s/%s.html" % (in_folder, pkg)
 

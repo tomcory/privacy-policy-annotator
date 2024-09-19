@@ -9,14 +9,21 @@ from src.api_ollama import ApiOllama
 from src.api_openai import ApiOpenAI
 
 
-def prepare_batch(run_id: str, task: str, in_folder: str, func: Callable[[str, str, str], list[dict]]):
+def prepare_batch(
+        run_id: str,
+        task: str,
+        in_folder: str,
+        client: Union[ApiOpenAI, ApiOllama],
+        model: dict,
+        func: Callable[[str, str, str, Union[ApiOpenAI, ApiOllama], dict], list[dict]]
+):
     batch = []
     for filename in os.listdir(in_folder):
         # Ensure we are processing files only (not directories)
         if os.path.isfile(os.path.join(in_folder, filename)):
             # Extract the package name from the filename
             pkg = os.path.splitext(filename)[0]
-            entries = func(run_id, pkg, in_folder)
+            entries = func(pkg, in_folder, task, client, model)
             if entries is not None:
                 batch += entries
 
@@ -27,9 +34,16 @@ def prepare_batch(run_id: str, task: str, in_folder: str, func: Callable[[str, s
     util.write_to_file(f"output/{run_id}/batch/{task}/batch_input.jsonl", jsonl)
 
 
-def run_batch(run_id: str, task: str, in_folder: str, client: Union[ApiOpenAI, ApiOllama], model: str, func: Callable[[str, str, str], list[dict]]):
+def run_batch(
+        run_id: str,
+        task: str,
+        in_folder: str,
+        client: Union[ApiOpenAI, ApiOllama],
+        model: dict,
+        func: Callable[[str, str, str, Union[ApiOpenAI, ApiOllama], dict], list[dict]]
+):
     # prepare and run the batch
-    prepare_batch(run_id, task, in_folder, func)
+    prepare_batch(run_id, task, in_folder, client, model, func)
     client.run_batch(task)
 
     print(f"Batch {task} started. Waiting for completion...")
@@ -55,7 +69,7 @@ def run_pipeline(
         run_id: str,
         id_file: str = None,
         single_pkg: str = None,
-        models: list[str] = None,
+        models: dict = None,
         client: Union[ApiOpenAI, ApiOllama] = None,
         crawl_retries: int = 2,
         skip_crawl: bool = True,
@@ -73,16 +87,16 @@ def run_pipeline(
 ):
     # define the processing steps of the pipeline with the corresponding functions and parameters
     processing_steps = [
-        ("clean", skip_clean, False, False, cleaner.execute, "original", "cleaned"),  # cleaner
-        ("detector", not batch_detect, True, False, detector.prepare_batch, "cleaned", "accepted"),  # batch detector
-        ("detect", skip_detect, False, batch_detect, detector.execute, "cleaned", "accepted"),  # detector
-        ("fixer", not batch_headline_fix, True, False, fixer.prepare_batch, "accepted", "fixed"),  # batch fixer
-        ("fix", skip_headline_fix, False, batch_headline_fix, fixer.execute, "accepted", "fixed"),  # fixer
-        ("parse", skip_parse, False, False, parser.execute, "fixed", "json"),  # parser
-        ("annotator", not batch_annotate, True, False, annotator.prepare_batch, "json", "annotated"),  # batch annotator
-        ("annotate", skip_annotate, False, batch_annotate, annotator.execute, "json", "annotated"),  # annotator
-        ("review", not batch_review, True, False, reviewer.prepare_batch, "annotated", "reviewed"),  # batch reviewer
-        ("review", skip_review, False, batch_review, reviewer.execute, "annotated", "reviewed")  # reviewer
+        ("clean", skip_clean, False, False, cleaner.execute, "original", "cleaned"),
+        ("detect_batch", not batch_detect, True, False, detector.prepare_batch, "cleaned", "accepted"),
+        ("detect", skip_detect, False, batch_detect, detector.execute, "cleaned", "accepted"),
+        ("fix_headlines_batch", not batch_headline_fix, True, False, fixer.prepare_batch, "accepted", "fixed"),
+        ("fix_headlines", skip_headline_fix, False, batch_headline_fix, fixer.execute, "accepted", "fixed"),
+        ("parse", skip_parse, False, False, parser.execute, "fixed", "json"),
+        ("annotate_batch", not batch_annotate, True, False, annotator.prepare_batch, "json", "annotated"),
+        ("annotate", skip_annotate, False, batch_annotate, annotator.execute, "json", "annotated"),
+        ("review_batch", not batch_review, True, False, reviewer.prepare_batch, "annotated", "reviewed"),
+        ("review", skip_review, False, batch_review, reviewer.execute, "annotated", "reviewed")
     ]
 
     # set up and configure the API client
@@ -104,10 +118,10 @@ def run_pipeline(
         in_folder = f"output/{run_id}/{in_folder}"
         out_folder = f"output/{run_id}/{out_folder}"
 
+        # check whether a dedicated model is specified for this step
         model = None
-        if models is not None:
-            if models[step] is not None:
-                model = models[step]
+        if models is not None and models.get(step.replace('_batch', '')) is not None:
+            model = models[step.replace('_batch', '')]
 
         if not skip:
             if single_pkg is not None:
@@ -116,7 +130,7 @@ def run_pipeline(
                     run_batch(run_id, step, in_folder, client, model, func)
                 else:
                     # execute the processing function of this step for the provided package
-                    func(run_id, single_pkg, in_folder, out_folder, client, model, use_batch_result, parallel_prompt)
+                    func(run_id, single_pkg, in_folder, out_folder, step, client, model, use_batch_result, parallel_prompt)
             else:
                 if is_batch_step:
                     # run the batch processing function of this step for all packages
@@ -130,11 +144,11 @@ def run_pipeline(
                             pkg = os.path.splitext(filename)[0]
                             try:
                                 # execute the processing function of this step for the current package
-                                func(run_id, pkg, in_folder, out_folder, client, model, use_batch_result, parallel_prompt)
+                                func(run_id, pkg, in_folder, out_folder, step, client, model, use_batch_result, parallel_prompt)
                             except Exception:
                                 with open(f"output/{run_id}/log/error.txt", 'w') as error_file:
                                     error_file.write(f"{pkg}\n")
-        else:
+        elif not is_batch_step:
             # copy the content of in_folder to out_folder without processing so that the next step can be executed
             for filename in os.listdir(in_folder):
                 if os.path.isfile(os.path.join(in_folder, filename)):
@@ -243,7 +257,7 @@ def parse_config_file(path: str):
     return (
         config.get("run_id", None),
         config.get("id_file", None),
-        config.get("single_pkg", None),
+        config.get("pkg", None),
         config.get("model", None),
         config.get("models", None),
         config.get("crawl_retries", 2),
@@ -272,11 +286,11 @@ def main():
 
     # parse the command line arguments or the configuration file if provided
     if config_path is not None:
-        run_id, id_file, single_pkg, model, models, crawl_retries, skip_crawl, skip_clean, skip_detect, skip_headline_fix, \
+        run_id, id_file, single_pkg, default_model, models, crawl_retries, skip_crawl, skip_clean, skip_detect, skip_headline_fix, \
             skip_parse, skip_annotate, skip_review, batch_detect, batch_headline_fix, batch_annotate, batch_review, \
             parallel_prompt = parse_config_file(config_path)
     else:
-        run_id, id_file, single_pkg, model, models, crawl_retries, skip_crawl, skip_clean, skip_detect, \
+        run_id, id_file, single_pkg, default_model, models, crawl_retries, skip_crawl, skip_clean, skip_detect, \
             skip_headline_fix, skip_parse, skip_annotate, skip_review, batch_detect, batch_headline_fix, batch_annotate, \
             batch_review, parallel_prompt = parse_args()
 
@@ -293,51 +307,49 @@ def main():
               "configuration file.", file=sys.stderr)
         sys.exit(1)
 
-    # check whether a model or step-specific models are provided
-    if model is None:
-        for step in ["detect", "headline_fix", "annotate", "review"]:
-            if models[step] is None:
-                print(f"Error: No model provided for step {step}. Please provide a default model with the -model "
-                      f"argument or the model field in the configuration file or specify a model for each pipeline "
-                      f"step with the -model-<step> arguments or the models field in the configuration file.",
-                      file=sys.stderr)
-                sys.exit(1)
-
     # get the lists of valid models from the API clients
-    openai_models = api_openai.models.keys()
-    ollama_models = api_ollama.models.keys()
+    openai_models = list(api_openai.models.keys())
+    ollama_models = list(api_ollama.models.keys())
 
-    # check whether the provided models are valid
-    clients = []
-    for model in models.values():
-        if model not in openai_models and model not in ollama_models:
-            print(f"Error: Invalid model provided: {model}. Please only provide valid models from the following list: "
-                  f"{openai_models + ollama_models}", file=sys.stderr)
+    steps = ["detect", "fix_headlines", "annotate", "review"]
+
+    # check whether a model or step-specific models are provided and valid
+    for step in steps:
+        if models.get(step) is None and default_model is None:
+            print(f"Error: No model provided for step {step}. Please provide a default model with the -model "
+                  f"argument or the model field in the configuration file or specify a model for each pipeline "
+                  f"step with the -model-<step> arguments or the models field in the configuration file.",
+                  file=sys.stderr)
             sys.exit(1)
-        elif model in openai_models:
-            clients.append('openai')
-        elif model in ollama_models:
-            clients.append('ollama')
+        elif models.get(step) is None:
+            # use the default model for the step if no specific model is provided
+            models[step] = api_openai.models[default_model]
+        elif models[step] in openai_models:
+            models[step] = api_openai.models[models[step]]
+        elif models[step] in ollama_models:
+            models[step] = api_ollama.models[models[step]]
+        else:
+            print(f"Error: Invalid model provided for step {step}: {default_model}. Please provide a valid model from the "
+                  f"following list: {openai_models + ollama_models}", file=sys.stderr)
+            sys.exit(1)
 
-    # check whether the provided models are from the same API
-    if not all(client == clients[0] for client in clients):
+    print(models)
+    print(models['detect'])
+
+    # check whether the provided models are from the same API by comparing their API field
+    if not all(models[step]['api'] == models['detect']['api'] for step in steps):
         print("Error: Models from different APIs are not supported. Please provide models from the same API.",
               file=sys.stderr)
         sys.exit(1)
 
-    # create the API client
-    if model is None:
-        if clients[0] == 'openai':
-            client = ApiOpenAI(run_id, model)
-        else:
-            client = ApiOllama(run_id, model)
-    elif model in openai_models:
-        client = ApiOpenAI(run_id, model)
-    elif model in ollama_models:
-        client = ApiOllama(run_id, model)
+    # create a matching API client for the specified models
+    if models['detect']['api'] == 'openai':
+        client = ApiOpenAI(run_id, default_model)
+    elif models['detect']['api'] == 'ollama':
+        client = ApiOllama(run_id, default_model)
     else:
-        print(f"Error: Invalid model provided: {model}. Please provide a valid model from the following list: "
-              f"{openai_models + ollama_models}", file=sys.stderr)
+        print(f"Error: Invalid API specified: '{models['detect']['api']}'. Only 'openai' and 'ollama' models are "
+              f"supported", file=sys.stderr)
         sys.exit(1)
 
     # for all batch steps, check whether the client supports batch processing
