@@ -1,4 +1,5 @@
 import json
+import os
 import timeit
 from typing import Literal
 
@@ -46,10 +47,7 @@ models = {
 }
 
 
-def _prepare_messages(system_msg: str, user_msg: str, examples: list[tuple[str, str]] = None):
-    if examples is None:
-        examples = []
-
+def _prepare_messages(system_msg: str, user_msg: str, examples: list[tuple[str, str]]):
     # map the examples to the correct json format
     examples = [({"role": "user", "content": e[0]}, {"role": "assistant", "content": e[1]}) for e in examples]
 
@@ -89,7 +87,7 @@ class ApiOpenAI:
             task: str,
             system_msg: str,
             user_msg: str,
-            examples: list[tuple[str, str]] = None,
+            examples: list[tuple[str, str]] = [],
             model: dict = None,
             response_format: Literal['text', 'json', 'json_schema'] = 'text',
             json_schema: dict = None,
@@ -103,7 +101,7 @@ class ApiOpenAI:
             seed: int = None,
             context_window: int = None,
             timeout: float = None
-    ) -> (str, float):
+    ) -> (str, float, float):
 
         if model is None:
             if self.default_model is None:
@@ -157,16 +155,21 @@ class ApiOpenAI:
         # calculate the cost of the API call based on the total number of tokens used
         cost = (system_len + user_len + example_len) * model['input_price'] + output_len * model['output_price']
 
-        output_format = 'txt' if response_format == 'text' else 'json'
+        output_format = 'txt' if response_format['type'] == 'text' else 'json'
 
         if self.run_id is not None and pkg is not None and task is not None:
+            # create the output folder if it does not exist
+            folder_path = f"output/{self.run_id}/{model['name']}_responses"
+            os.makedirs(folder_path, exist_ok=True)
+            os.makedirs(f"{folder_path}/{task}", exist_ok=True)
+
             # log the cost, processing time and response
-            with open(f"output/{self.run_id}/{model['name']}-responses/costs-{task}.csv", "a") as f:
+            with open(f"output/{folder_path}/costs_{task}.csv", "a") as f:
                 f.write(f"{pkg},{cost}\n")
-            with open(f"output/{self.run_id}/{model['name']}-responses/times-{task}.csv", "a") as f:
+            with open(f"output/{folder_path}/times_{task}.csv", "a") as f:
                 f.write(f"{pkg},{processing_time}\n")
-            with open(f"output/{self.run_id}/{model['name']}-responses/{task}/{pkg}.{output_format}", "w") as f:
-                f.write(output)
+            with open(f"output/{folder_path}/{task}/{pkg}.{output_format}", "a") as f:
+                f.write(output + '\n')
 
         return output, cost, processing_time
 
@@ -176,7 +179,7 @@ class ApiOpenAI:
             task: str,
             system_msg: str,
             user_msg: str,
-            examples: list[tuple[str, str]] = None,
+            examples: list[tuple[str, str]] = [],
             model: dict = None,
             response_format: Literal['text', 'json', 'json_schema'] = 'text',
             json_schema: dict = None,
@@ -199,7 +202,7 @@ class ApiOpenAI:
             task: str,
             system_msg: str,
             user_msg: str,
-            examples: list[tuple[str, str]] = None,
+            examples: list[tuple[str, str]] = [],
             entry_id: int = 0,
             model: dict = None,
             response_format: str = 'text',

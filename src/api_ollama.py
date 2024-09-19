@@ -1,5 +1,6 @@
 import asyncio
 import json
+import os
 import timeit
 from typing import List, Union, Dict, Optional, Literal, Tuple
 
@@ -306,22 +307,6 @@ async def _query_ollama_parallel(
     return result_list
 
 
-def _prepare_messages(system_msg: str, user_msg: str, examples: list[tuple[str, str]] = None):
-    if examples is None:
-        examples = []
-
-    # map the examples to the correct json format
-    examples = [({"role": "user", "content": e[0]}, {"role": "assistant", "content": e[1]}) for e in examples]
-
-    # generate the messages list for the API call
-    messages = [{"role": "system", "content": system_msg}]
-    for example in examples:
-        messages.extend(example)
-    messages.append({"role": "user", "content": user_msg})
-
-    return messages
-
-
 class ApiOllama:
     def __init__(self, run_id: str, default_model: str = None):
         self.run_id = run_id
@@ -370,7 +355,7 @@ class ApiOllama:
             seed: int = None,
             context_window: int = None,
             timeout: float = None
-    ) -> (str, float):
+    ) -> (str, float, float):
 
         if model is None:
             if self.default_model is None:
@@ -421,14 +406,14 @@ class ApiOllama:
 
         if self.run_id is not None and pkg is not None and task is not None:
             # log the cost, processing time and response
-            with open(f"output/{self.run_id}/{model['name']}-responses/costs-{task}.csv", "a") as f:
+            with open(f"output/{self.run_id}/{model['name']}_responses/costs_{task}.csv", "a") as f:
                 f.write(f"{pkg},{cost}\n")
-            with open(f"output/{self.run_id}/{model['name']}-responses/times-{task}.csv", "a") as f:
+            with open(f"output/{self.run_id}/{model['name']}_responses/times_{task}.csv", "a") as f:
                 f.write(f"{pkg},{processing_time}\n")
-            with open(f"output/{self.run_id}/{model['name']}-responses/{task}/{pkg}.txt", "w") as f:
+            with open(f"output/{self.run_id}/{model['name']}_responses/{task}/{pkg}.txt", "w") as f:
                 f.write(output)
 
-        return output, cost
+        return output, cost, processing_time
 
     def prompt_parallel(
             self,
@@ -436,7 +421,7 @@ class ApiOllama:
             task: str,
             system_msg: str,
             user_msgs: list[str],
-            examples: list[tuple[str, str]] = None,
+            examples: list[tuple[str, str]] = [],
             model: dict = None,
             response_format: Literal['text', 'json', 'json_schema'] = 'text',
             json_schema: dict = None,
@@ -499,17 +484,21 @@ class ApiOllama:
         output_format = 'json' if response_format == 'json' else 'txt'
 
         if self.run_id is not None and pkg is not None and task is not None:
+            # create the output folder if it does not exist
+            folder_path = f"output/{self.run_id}/{model['name']}_responses"
+            os.makedirs(folder_path, exist_ok=True)
+            os.makedirs(f"{folder_path}/{task}", exist_ok=True)
+
             # log the cost, processing time and response
-            with open(f"output/{self.run_id}/{model['name']}-responses/costs-{task}.csv", "a") as f:
+            with open(f"output/{folder_path}/costs_{task}.csv", "a") as f:
                 f.write(f"{pkg},{cost}\n")
-            with open(f"output/{self.run_id}/{model['name']}-responses/times-{task}.csv", "a") as f:
+            with open(f"output/{folder_path}/times_{task}.csv", "a") as f:
                 f.write(f"{pkg},{processing_time}\n")
             for i, output in enumerate(outputs):
-                with open(f"output/{self.run_id}/{model['name']}-responses/{task}/{pkg}_{i}.{output_format}", "w") as f:
-                    f.write(output)
+                with open(f"output/{folder_path}/{task}/{pkg}_{i}.{output_format}", "a") as f:
+                    f.write(output + '\n')
 
         return outputs, cost, processing_time
-
 
     def prepare_batch_entry(
             self,
