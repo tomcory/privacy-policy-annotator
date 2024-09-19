@@ -1,0 +1,24 @@
+{
+    "run_id": "run1-top",
+    "pkg": "com.adobe.reader",
+    "model": "gpt-4o-mini",
+    "models": {
+        "detect": "gpt-4o-mini",
+        "fix_headlines": "gpt-4o-mini",
+        "annotate": "gpt-4o-mini",
+        "review": "gpt-4o-mini"
+    },
+    "crawl_retries": 2,
+    "skip_crawl": true,
+    "skip_clean": false,
+    "skip_detect": false,
+    "skip_headline_fix": false,
+    "skip_parse": false,
+    "skip_annotate": false,
+    "skip_review": false,
+    "batch_detect": false,
+    "batch_headline_fix": false,
+    "batch_annotate": false,
+    "batch_review": false,
+    "parallel_prompt": false
+}
