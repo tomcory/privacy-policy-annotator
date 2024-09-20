@@ -2,7 +2,7 @@ from typing import Union
 
 from bs4 import BeautifulSoup, NavigableString
 
-from src import api_wrapper, util
+from src import util
 from src.api_ollama import ApiOllama
 from src.api_openai import ApiOpenAI
 

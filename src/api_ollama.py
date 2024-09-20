@@ -1,12 +1,13 @@
 import asyncio
 import json
-import os
 import timeit
-from typing import List, Union, Dict, Optional, Literal, Tuple
+from typing import List, Union, Dict, Optional, Literal
 
 import ollama
 import tiktoken
 from ollama import AsyncClient, Options
+
+from src import util
 
 models = {
     'llama3': {
@@ -405,13 +406,7 @@ class ApiOllama:
         cost = (system_len + user_len + example_len) * model['input_price'] + output_len * model['output_price']
 
         if self.run_id is not None and pkg is not None and task is not None:
-            # log the cost, processing time and response
-            with open(f"output/{self.run_id}/{model['name']}_responses/costs_{task}.csv", "a") as f:
-                f.write(f"{pkg},{cost}\n")
-            with open(f"output/{self.run_id}/{model['name']}_responses/times_{task}.csv", "a") as f:
-                f.write(f"{pkg},{processing_time}\n")
-            with open(f"output/{self.run_id}/{model['name']}_responses/{task}/{pkg}.txt", "w") as f:
-                f.write(output)
+            util.log_prompt_result(self.run_id, task, pkg, model['name'], response_format, cost, processing_time, [output])
 
         return output, cost, processing_time
 
@@ -484,19 +479,7 @@ class ApiOllama:
         output_format = 'json' if response_format == 'json' else 'txt'
 
         if self.run_id is not None and pkg is not None and task is not None:
-            # create the output folder if it does not exist
-            folder_path = f"output/{self.run_id}/{model['name']}_responses"
-            os.makedirs(folder_path, exist_ok=True)
-            os.makedirs(f"{folder_path}/{task}", exist_ok=True)
-
-            # log the cost, processing time and response
-            with open(f"output/{folder_path}/costs_{task}.csv", "a") as f:
-                f.write(f"{pkg},{cost}\n")
-            with open(f"output/{folder_path}/times_{task}.csv", "a") as f:
-                f.write(f"{pkg},{processing_time}\n")
-            for i, output in enumerate(outputs):
-                with open(f"output/{folder_path}/{task}/{pkg}_{i}.{output_format}", "a") as f:
-                    f.write(output + '\n')
+            util.log_prompt_result(self.run_id, task, pkg, model['name'], output_format, cost, processing_time, outputs)
 
         return outputs, cost, processing_time
 

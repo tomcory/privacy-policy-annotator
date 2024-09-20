@@ -55,3 +55,33 @@ def load_policy_json(file_path: str):
     except json.JSONDecodeError:
         print(f"The file {file_path} does not contain valid JSON.")
         return None
+
+
+def log_prompt_result(
+        run_id: str,
+        task: str,
+        pkg: str,
+        model_name: str,
+        output_format: str,
+        cost: float,
+        processing_time: float,
+        outputs: list
+):
+    # create the output folder if it does not exist
+    folder_path = f"output/{run_id}/{model_name}_responses"
+    os.makedirs(folder_path, exist_ok=True)
+    os.makedirs(f"{folder_path}/{task}", exist_ok=True)
+
+    # log the cost, processing time and response
+    with open(f"output/{folder_path}/costs_{task}.csv", "a") as f:
+        f.write(f"{pkg},{cost}\n")
+    with open(f"output/{folder_path}/times_{task}.csv", "a") as f:
+        f.write(f"{pkg},{processing_time}\n")
+
+    if len(outputs) > 1:
+        for i, output in enumerate(outputs):
+            with open(f"output/{folder_path}/{task}/{pkg}_{i}.{output_format}", "a") as f:
+                f.write(output + '\n')
+    else:
+        with open(f"output/{folder_path}/{task}/{pkg}.{output_format}", "a") as f:
+            f.write(outputs[0] + '\n')

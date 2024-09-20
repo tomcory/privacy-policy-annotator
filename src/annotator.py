@@ -1,12 +1,12 @@
 import json
 from typing import Union
 
-from src import util, api_wrapper
+from src import util
 from src.api_ollama import ApiOllama
 from src.api_openai import ApiOpenAI
 
 system_msg = '''Your task is to annotate the specific words or phrases in given text passages (extracted from privacy 
-policies) that fulfill any of the following transparency requirements as defined by GDPR Articles 13 and 14: """ 1) 
+policies) that fulfill any of the following list of transparency requirements as defined by GDPR Articles 13 and 14: """ 1) 
 Controller Name: The name of the data controller. 2) Controller Contact: How to contact the data controller. 3) DPO 
 Contact: How to contact the data protection officer. 4) Data Categories: What categories of data are processed. 5) 
 Processing Purpose: Why is the data processed. 6) Source of Data: Where does the data come from, e.g. third parties 

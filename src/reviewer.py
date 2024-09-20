@@ -1,7 +1,6 @@
 import json
 from typing import Union
 
-from src import api_wrapper
 from src.api_ollama import ApiOllama
 from src.api_openai import ApiOpenAI
 

@@ -1,11 +1,12 @@
 import json
-import os
 import timeit
 from typing import Literal
 
 import tiktoken
 from dotenv import load_dotenv
 from openai import OpenAI
+
+from src import util
 
 models = {
     'gpt-3.5-turbo': {
@@ -158,18 +159,7 @@ class ApiOpenAI:
         output_format = 'txt' if response_format['type'] == 'text' else 'json'
 
         if self.run_id is not None and pkg is not None and task is not None:
-            # create the output folder if it does not exist
-            folder_path = f"output/{self.run_id}/{model['name']}_responses"
-            os.makedirs(folder_path, exist_ok=True)
-            os.makedirs(f"{folder_path}/{task}", exist_ok=True)
-
-            # log the cost, processing time and response
-            with open(f"output/{folder_path}/costs_{task}.csv", "a") as f:
-                f.write(f"{pkg},{cost}\n")
-            with open(f"output/{folder_path}/times_{task}.csv", "a") as f:
-                f.write(f"{pkg},{processing_time}\n")
-            with open(f"output/{folder_path}/{task}/{pkg}.{output_format}", "a") as f:
-                f.write(output + '\n')
+            util.log_prompt_result(self.run_id, task, pkg, model['name'], output_format, cost, processing_time, [output])
 
         return output, cost, processing_time
 

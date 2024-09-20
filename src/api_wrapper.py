@@ -4,7 +4,6 @@ import tiktoken
 from dotenv import load_dotenv
 from openai import OpenAI
 
-
 models = {
     'gpt-3.5-turbo': {
         'name': 'gpt-3.5-turbo',
