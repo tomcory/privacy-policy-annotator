@@ -373,7 +373,7 @@ def evaluate_annotations_for_llm_model(manager: ModelManager, llm_name: str, pac
             logging.warning(f"Skipping {package_name}: annotated or reference file not found for LLM '{llm_name}'")
             continue
 
-        print(f"Evaluating annotations for {package_name}...")
+        print(f"Evaluating annotations for {package_name} by LLM '{llm_name}'...")
         with open(annotated_file, 'r') as f_annotated, open(reference_file, 'r') as f_reference:
             annotated_data = json.load(f_annotated)
             reference_data = json.load(f_reference)
@@ -450,21 +450,45 @@ def evaluate_file(manager: ModelManager, llm_name: str, reference_data: List[Dic
             continue
 
         if not matching_entry:
-            print("No exact match found. Searching for similar passage...")
             matching_entry = find_similar_passage(manager, ref_passage, annotated_data)
 
         if matching_entry:
             if 'annotations' not in ref_entry or 'annotations' not in matching_entry or not matching_entry['annotations']:
                 logging.warning(f"No annotations found for passage: {ref_passage[:50]} for LLM '{llm_name}'")
-                matching_entry['similarity_score'] = 0
+                matching_entry['correct_requirements_ratio'] = 0
+                matching_entry['false_positives'] = 0
+                matching_entry['false_negatives'] = 0
+                matching_entry['reason'] = "No annotations found for this passage."
             else:
-                similarity_scores, avg_similarity_score = calculate_annotation_similarity(manager, ref_entry['annotations'], matching_entry['annotations'])
-                print(f"Similarity for passage: {ref_passage[:50]}: {avg_similarity_score:.4f}")
-                matching_entry['average_similarity_score'] = avg_similarity_score
-                matching_entry['annotation_similarity_scores'] = similarity_scores
+                correct_requirements_ratio, false_positives, false_negatives = calculate_requirements_stats(ref_entry['annotations'], matching_entry['annotations'])
+                matching_entry['correct_requirements_ratio'] = float(correct_requirements_ratio)
+                matching_entry['false_positives'] = false_positives
+                matching_entry['false_negatives'] = false_negatives
+
+                for ref_ann in ref_entry['annotations']:
+                    best_match, semantic_similarity, word_level_similarity = find_best_matching_annotation(manager, ref_ann, matching_entry['annotations'])
+                    if best_match:
+                        if 'semantic_similarity' in best_match and 'word_level_similarity' in best_match:
+                            if semantic_similarity > best_match['semantic_similarity']:
+                                best_match['semantic_similarity'] = float(semantic_similarity)
+                                best_match['word_level_similarity'] = float(word_level_similarity)
+                            else:
+                                continue
+                        else:
+                            best_match['semantic_similarity'] = float(semantic_similarity)
+                            best_match['word_level_similarity'] = float(word_level_similarity)
+
+                # Handle annotations made by the contender model that were not found in the reference data
+                for ann in matching_entry['annotations']:
+                    if 'semantic_similarity' not in ann and 'word_level_similarity' not in ann:
+                        ann['semantic_similarity'] = 0.0
+                        ann['word_level_similarity'] = 0.0
+                        ann['reason'] = "This annotation was not made by the reference model"
         else:
             matching_entry = ref_entry.copy()
-            matching_entry['similarity_score'] = -1
+            matching_entry['correct_requirements_ratio'] = 0
+            matching_entry['false_positives'] = 0
+            matching_entry['false_negatives'] = 0
             matching_entry['reason'] = "This entry was not found in the annotated data and was therefore copied from the reference data."
             logging.info(f"No matching entry found for passage: {ref_passage[:50]}...")
 
@@ -472,6 +496,40 @@ def evaluate_file(manager: ModelManager, llm_name: str, reference_data: List[Dic
 
     return evaluated_data
 
+def calculate_requirements_stats(ref_annotations: List[Dict], annotated_annotations: List[Dict]) -> (float, int, int):
+    ref_requirements = {ann['requirement'] for ann in ref_annotations}
+    annotated_requirements = {ann['requirement'] for ann in annotated_annotations}
+
+    correct_requirements = ref_requirements & annotated_requirements
+    false_positives = len(annotated_requirements - ref_requirements)
+    false_negatives = len(ref_requirements - annotated_requirements)
+
+    correct_requirements_percentage = len(correct_requirements) / len(ref_requirements) if ref_requirements else 0
+
+    return correct_requirements_percentage, false_positives, false_negatives
+
+def find_best_matching_annotation(manager: ModelManager, ref_ann: Dict, annotated_annotations: List[Dict]) -> (Dict, float, float):
+    best_match = None
+    best_semantic_similarity = 0
+    best_word_level_similarity = 0
+
+    for ann in annotated_annotations:
+        if ann['requirement'] == ref_ann['requirement']:
+            try:
+                if not isinstance(ref_ann['value'], str) or not isinstance(ann['value'], str):
+                    raise ValueError("Invalid 'value' type. Expected a string.")
+
+                semantic_similarity = fasttext_phrase_similarity(manager, ref_ann['value'], ann['value'])
+                word_level_similarity = rapidfuzz.fuzz.ratio(ref_ann['value'], ann['value']) / 100.0
+
+                if semantic_similarity > best_semantic_similarity:
+                    best_match = ann
+                    best_semantic_similarity = semantic_similarity
+                    best_word_level_similarity = word_level_similarity
+            except ValueError as e:
+                logging.error(f"Error processing annotation values: {e}", exc_info=True)
+
+    return best_match, best_semantic_similarity, best_word_level_similarity
 
 def find_similar_passage(manager: ModelManager, ref_passage: str, annotated_data: List[Dict]) -> Dict:
     if manager.current_model == 'fasttext':
