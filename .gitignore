@@ -11,3 +11,5 @@ OPP-115
 fasttext_dataset
 embedding_data
 embedding_models
+set-of-50
+__pycache__
