@@ -11,8 +11,6 @@ import urllib.request
 import rapidfuzz.utils
 import numpy as np
 from nltk.tokenize.punkt import PunktSentenceTokenizer, PunktParameters
-from sentence_transformers import SentenceTransformer, InputExample, losses, util
-from torch.utils.data import DataLoader
 from gensim.models.fasttext import FastText
 from typing import List, Dict
 
@@ -32,19 +30,17 @@ class ModelNotFoundError(Exception):
 
 
 class ModelManager:
-    def __init__(self, fasttext_model_name="wiki-news-300d-1M-subword", sbert_model_name="sentence-transformers/all-mpnet-base-v2"):
+    def __init__(self, fasttext_model_name="wiki-news-300d-1M-subword"):
         self.fasttext_model_name = fasttext_model_name
-        self.sbert_model_name = sbert_model_name
         self.fasttext_model = None
-        self.sbert_model = None
         self.current_model = None
 
         # Define model paths
         self.fasttext_pretrained_path = os.path.join(FASTTEXT_DIR, self.fasttext_model_name, f"{self.fasttext_model_name}.bin")
+        self.fasttext_custom_path = os.path.join(FASTTEXT_DIR, self.fasttext_model_name, f"{self.fasttext_model_name}-custom.model")
         self.fasttext_finetuned_path = os.path.join(FASTTEXT_DIR, self.fasttext_model_name, f"{self.fasttext_model_name}-finetuned.model")
-        self.sbert_finetuned_path = os.path.join(SBERT_DIR, "fine_tuned_sbert")
 
-    def download_fasttext_model(self):
+    def download_pretrained_fasttext_model(self):
         print("Downloading FastText model...")
         os.makedirs(os.path.join(FASTTEXT_DIR, self.fasttext_model_name), exist_ok=True)
         url = 'https://dl.fbaipublicfiles.com/fasttext/vectors-english/wiki-news-300d-1M-subword.bin.zip'
@@ -68,7 +64,24 @@ class ModelManager:
         self.fasttext_pretrained_path = bin_path
         print(f"Pre-trained FastText model available at {self.fasttext_pretrained_path}.")
 
-    def load_fasttext_model(self):
+    def load_pretrained_fasttext_model(self):
+        if self.fasttext_model is not None:
+            print("FastText model already loaded.")
+            return self.fasttext_model
+
+        if not os.path.exists(self.fasttext_pretrained_path):
+            print("Pre-trained FastText model not found. Downloading...")
+            self.download_pretrained_fasttext_model()
+        else:
+            print("Loading pre-trained FastText model...")
+
+        self.fasttext_model = gensim.models.fasttext.load_facebook_model(self.fasttext_pretrained_path)
+        print("Pre-trained FastText model loaded successfully.")
+
+        self.current_model = 'fasttext_pretrained'
+        return self.fasttext_model
+
+    def load_finetuned_fasttext_model(self):
         if self.fasttext_model is not None:
             print("FastText model already loaded.")
             return self.fasttext_model
@@ -77,40 +90,26 @@ class ModelManager:
             print("Loading fine-tuned FastText model...")
             self.fasttext_model = FastText.load(self.fasttext_finetuned_path)
             print("Fine-tuned FastText model loaded successfully.")
+            self.current_model = 'fasttext_finetuned'
+            return self.fasttext_model
         else:
-            if not os.path.exists(self.fasttext_pretrained_path):
-                print("Pre-trained FastText model not found. Downloading...")
-                self.download_fasttext_model()
-            else:
-                print("Loading pre-trained FastText model...")
-            # Load the pre-trained FastText model
-            self.fasttext_model = gensim.models.fasttext.load_facebook_model(self.fasttext_pretrained_path)
-            print("Pre-trained FastText model loaded successfully.")
+            print("Warning: Fine-tuned FastText model not found.")
+            sys.exit(1)
 
-        self.current_model = 'fasttext'
-        return self.fasttext_model
+    def load_custom_fasttext_model(self):
+        if self.fasttext_model is not None:
+            print("FastText model already loaded.")
+            return self.fasttext_model
 
-    def load_sbert_model(self):
-        if self.sbert_model is not None:
-            print("SBERT model already loaded.")
-            return self.sbert_model
-
-        self.sbert_model = SentenceTransformer(self.sbert_model_name)
-        print(f"SBERT model '{self.sbert_model_name}' loaded successfully.")
-        self.current_model = 'sbert'
-
-    def load_finetuned_sbert_model(self, model_path: str):
-        if self.sbert_model is not None:
-            print("Fine-tuned SBERT model already loaded.")
-            return self.sbert_model
-
-        if not os.path.exists(model_path):
-            raise ModelNotFoundError(f"Model not found at {model_path}")
-
-        print("Loading fine-tuned SBERT model...")
-        self.sbert_model = SentenceTransformer(model_path)
-        print(f"Fine-tuned SBERT model loaded successfully from '{model_path}'.")
-        self.current_model = 'sbert'
+        if os.path.exists(self.fasttext_custom_path):
+            print("Loading custom FastText model...")
+            self.fasttext_model = FastText.load(self.fasttext_custom_path)
+            print("Custom FastText model loaded successfully.")
+            self.current_model = 'fasttext_custom'
+            return self.fasttext_model
+        else:
+            print("Warning: Custom FastText model not found.")
+            sys.exit(1)
 
     def fine_tune_fasttext_model(self, dataset_file: str):
         # Ensure directories exist
@@ -122,17 +121,18 @@ class ModelManager:
         print(f"Fine-tuning on: {tokenized_data[:5]}")
 
         # Load or download pre-trained model
-        self.load_fasttext_model()
+        self.load_pretrained_fasttext_model()
+
+        # Set training parameters
+        self.fasttext_model.sg = 1
+        self.fasttext_model.min_count = 1
+        self.fasttext_model.workers = 4
+        self.fasttext_model.window = 10
 
         # Build the vocabulary with your dataset
         print("Building vocabulary with custom dataset...")
         self.fasttext_model.build_vocab(corpus_iterable=tokenized_data, update=True)
         print(f"Vocabulary updated. Number of unique tokens: {len(self.fasttext_model.wv)}")
-
-        # Set training parameters
-        self.fasttext_model.min_count = 1
-        self.fasttext_model.workers = 4
-        self.fasttext_model.window = 10
 
         # Fine-tune the model
         print("Training FastText model...")
@@ -150,19 +150,36 @@ class ModelManager:
 
         self.current_model = 'fasttext'
 
-    def fine_tune_sbert_unsupervised(self, file_path, output_dir=SBERT_DIR):
-        sentences = load_sentences(file_path)
-        train_examples = create_input_examples(sentences)
-        train_dataloader = DataLoader(train_examples, shuffle=True, batch_size=16)
-        train_loss = losses.MultipleNegativesRankingLoss(self.sbert_model)
-        self.sbert_model.fit(
-            train_objectives=[(train_dataloader, train_loss)],
-            epochs=3,
-            warmup_steps=100,
-            show_progress_bar=True
+    def train_fasttext_model(self, dataset, vector_size=600, window=10, min_count=1, epochs=10, sg=1):
+        """
+        Train a new FastText model from scratch on the given dataset.
+        
+        :param dataset: List of lists of strings, where each inner list represents a sentence
+        :param vector_size: Dimensionality of the word vectors (default: 600)
+        :param window: Maximum distance between the current and predicted word within a sentence (default: 10)
+        :param min_count: Ignores all words with total frequency lower than this (default: 1)
+        :param epochs: Number of iterations over the corpus (default: 10)
+        :param sg: Training algorithm: 1 for skip-gram; otherwise CBOW (default: 1)
+        """
+        print("Training new FastText model...")
+
+        # Initialize and train the FastText model
+        self.fasttext_model = FastText(
+            sentences=dataset,
+            vector_size=vector_size,
+            window=window,
+            min_count=min_count,
+            workers=os.cpu_count(),  # Use all available CPU cores
+            epochs=epochs,
+            sg=sg
         )
-        self.sbert_model.save(output_dir)
-        print(f"Model fine-tuned and saved successfully at {output_dir}")
+
+        print("FastText model training completed.")
+
+        # Save the trained model
+        os.makedirs(os.path.dirname(self.fasttext_custom_path), exist_ok=True)
+        self.fasttext_model.save(self.fasttext_custom_path)
+        print(f"FastText model saved successfully at {self.fasttext_custom_path}.")
 
     def get_fasttext_phrase_embedding(self, phrase: str) -> np.ndarray:
         words = phrase.strip().split()
@@ -176,11 +193,6 @@ class ModelManager:
             raise ValueError(f"None of the words in the phrase: '{phrase}' were found in the vocabulary.")
 
         return np.mean(vectors, axis=0)
-
-    def get_sbert_phrase_embedding(self, phrase: str) -> np.ndarray:
-        if self.current_model != 'sbert':
-            self.load_sbert_model()
-        return self.sbert_model.encode(phrase, convert_to_tensor=True).cpu().numpy()
 
 
 def tokenizer_downloaded():
@@ -263,12 +275,6 @@ def load_sentences(file_path):
     return lines
 
 
-def create_input_examples(sentences):
-    """Create InputExamples for unsupervised fine-tuning by duplicating sentences."""
-    examples = [InputExample(texts=[sentence, sentence]) for sentence in sentences]
-    return examples
-
-
 def fasttext_phrase_similarity(manager: ModelManager, phrase1: str, phrase2: str) -> float:
     vec1 = manager.get_fasttext_phrase_embedding(phrase1)
     vec2 = manager.get_fasttext_phrase_embedding(phrase2)
@@ -316,56 +322,8 @@ def compare_phrases_fasttext(manager: ModelManager, phrase1: str, phrase2: str):
     print(f"Similarity score between '{phrase1}' and '{phrase2}': {similarity_score:.4f}")
 
 
-def sbert_phrase_similarity(manager: ModelManager, phrase1: str, phrase2: str) -> float:
-    vec1 = manager.get_sbert_phrase_embedding(phrase1)
-    vec2 = manager.get_sbert_phrase_embedding(phrase2)
-    return util.cos_sim(vec1, vec2).item()
-
-
-def sbert_annotation_similarity(manager: ModelManager, annotation1: dict, annotation2: dict) -> float:
-    """Compare two annotations and return a similarity score."""
-    if 'requirement' not in annotation1 or 'requirement' not in annotation2:
-        logging.error(f"One of the annotations does not contain a 'requirement' key: {annotation1}, {annotation2}")
-        return 0
-    if annotation1['requirement'].lower() != annotation2['requirement'].lower():
-        return 0
-
-    return sbert_phrase_similarity(manager, annotation1['value'], annotation2['value'])
-
-
-def compare_annotations_sbert(manager: ModelManager, file1: str, file2: str):
-    """Compare annotations between two JSON files."""
-    with open(file1, 'r', encoding='utf-8') as f1, open(file2, 'r', encoding='utf-8') as f2:
-        annotations1 = json.load(f1)
-        annotations2 = json.load(f2)
-
-    for i, (ann1, ann2) in enumerate(zip(annotations1, annotations2)):
-        if ann1['passage'] != ann2['passage']:
-            print(f"Passage mismatch at index {i}:")
-            print(f"File 1: {ann1['passage']}")
-            print(f"File 2: {ann2['passage']}")
-            continue
-
-        if not ann1['annotations'] and not ann2['annotations']:
-            print(f"No annotations from both LLMs for passage at index {i}.")
-            continue
-
-        shorter_list = ann1['annotations'] if len(ann1['annotations']) < len(ann2['annotations']) else ann2['annotations']
-        total_similarity = 0
-        for ann in shorter_list:
-            similarity_scores = [sbert_annotation_similarity(manager, ann, other_ann) for other_ann in ann2['annotations']]
-            total_similarity += max(similarity_scores)
-        similarity_score = total_similarity / len(shorter_list)
-        print(f"Average similarity score for passage at index {i}: {similarity_score:.4f}")
-
-
-def compare_phrases_sbert(manager: ModelManager, phrase1: str, phrase2: str):
-    """Compare the similarity between two phrases."""
-    similarity_score = sbert_phrase_similarity(manager, phrase1, phrase2)
-    print(f"Similarity score between '{phrase1}' and '{phrase2}': {similarity_score:.4f}")
-
-
-def evaluate_annotations_for_llm_model(manager: ModelManager, llm_name: str, package_names: List[str], annotated_dir: str, reference_dir: str, evaluation_dir: str, evaluate_reviewed: bool):
+def evaluate_annotations_for_llm_model(manager: ModelManager, llm_name: str, package_names: List[str], annotated_dir: str, reference_dir: str, evaluation_dir: str,
+                                       evaluate_reviewed: bool):
     for package_name in package_names:
         annotated_file = find_json_file(annotated_dir, package_name, llm_name)
         reference_file = find_json_file(reference_dir, package_name)
@@ -414,7 +372,8 @@ def evaluate_annotations(manager: ModelManager, run_id: str, evaluate_reviewed: 
                 logging.warning(f"Model '{llm_name}' not found in the list of available models.")
                 print(f"Model '{llm_name}' not found in the list of available models. Skipping...")
                 continue
-            evaluate_annotations_for_llm_model(manager, llm_name, package_names, annotated_dir if not evaluate_reviewed else reviewed_dir, reference_dir, evaluation_dir, evaluate_reviewed)
+            evaluate_annotations_for_llm_model(manager, llm_name, package_names, annotated_dir if not evaluate_reviewed else reviewed_dir, reference_dir, evaluation_dir,
+                                               evaluate_reviewed)
     else:
         # if no model_file.txt file exists, assume that the evaluation is to be done for a single model
         llm_names = [ollama_name.replace(':', '_') for ollama_name in api_wrapper.OLLAMA_MODELS.values()] + list(api_wrapper.OPENAI_MODELS.keys())
@@ -427,7 +386,8 @@ def evaluate_annotations(manager: ModelManager, run_id: str, evaluate_reviewed: 
             logging.error(f"No valid model name found in the file name '{first_file}'.")
             print(f"No valid model name found in the file name '{first_file}'. Exiting...")
             return
-        evaluate_annotations_for_llm_model(manager, llm_name, package_names, annotated_dir if not evaluate_reviewed else reviewed_dir, reference_dir, evaluation_dir, evaluate_reviewed)
+        evaluate_annotations_for_llm_model(manager, llm_name, package_names, annotated_dir if not evaluate_reviewed else reviewed_dir, reference_dir, evaluation_dir,
+                                           evaluate_reviewed)
 
 
 def find_json_file(directory: str, package_name: str, llm_name: str = None) -> str:
@@ -444,7 +404,8 @@ def evaluate_file(manager: ModelManager, llm_name: str, reference_data: List[Dic
         ref_passage = ref_entry['passage'].lower().strip()
         try:
             if evaluate_reviewed:
-                matching_entry = next((entry['revised'] for entry in annotated_data if entry.get('revised') and entry['revised'].get('passage', '').lower().strip() == ref_passage), None)
+                matching_entry = next(
+                    (entry['revised'] for entry in annotated_data if entry.get('revised') and entry['revised'].get('passage', '').lower().strip() == ref_passage), None)
             else:
                 matching_entry = next((entry for entry in annotated_data if entry.get('passage', '').lower().strip() == ref_passage), None)
         except KeyError as ke:
@@ -459,7 +420,7 @@ def evaluate_file(manager: ModelManager, llm_name: str, reference_data: List[Dic
 
         if matching_entry:
             try:
-                if 'annotations' not in ref_entry or 'annotations' not in matching_entry or not matching_entry['annotations']:
+                if 'annotations' not in ref_entry or 'annotations' not in matching_entry or (matching_entry.get('annotations') is None and ref_entry.get('annotations') is not None):
                     logging.warning(f"No annotations found for passage: {ref_passage[:50]} for LLM '{llm_name}'")
                     matching_entry['correct_requirements_ratio'] = 0
                     matching_entry['false_positives'] = 0
@@ -491,7 +452,7 @@ def evaluate_file(manager: ModelManager, llm_name: str, reference_data: List[Dic
                             ann['word_level_similarity'] = 0.0
                             ann['reason'] = "This annotation was not made by the reference model"
             except Exception as e:
-                logging.error(f"Error processing annotations for passage: {ref_passage[:50]}: {e}")
+                logging.error(f"Error processing annotations for passage: {ref_passage[:50]}: {e}", exc_info=True)
                 matching_entry['correct_requirements_ratio'] = 0
                 matching_entry['false_positives'] = 0
                 matching_entry['false_negatives'] = 0
@@ -508,6 +469,7 @@ def evaluate_file(manager: ModelManager, llm_name: str, reference_data: List[Dic
 
     return evaluated_data
 
+
 def calculate_requirements_stats(ref_annotations: List[Dict], annotated_annotations: List[Dict]) -> (float, int, int):
     ref_requirements = {ann['requirement'] for ann in ref_annotations}
     annotated_requirements = {ann['requirement'] for ann in annotated_annotations}
@@ -519,6 +481,7 @@ def calculate_requirements_stats(ref_annotations: List[Dict], annotated_annotati
     correct_requirements_percentage = len(correct_requirements) / len(ref_requirements) if ref_requirements else 0
 
     return correct_requirements_percentage, false_positives, false_negatives
+
 
 def find_best_matching_annotation(manager: ModelManager, ref_ann: Dict, annotated_annotations: List[Dict]) -> (Dict, float, float):
     best_match = None
@@ -543,18 +506,14 @@ def find_best_matching_annotation(manager: ModelManager, ref_ann: Dict, annotate
 
     return best_match, best_semantic_similarity, best_word_level_similarity
 
+
 def find_similar_passage(manager: ModelManager, ref_passage: str, annotated_data: List[Dict], evaluate_reviewed: bool) -> Dict:
     try:
-        if manager.current_model == 'fasttext':
-            similarity_scores = [
-                (entry.get('revised', entry) if evaluate_reviewed else entry, fasttext_phrase_similarity(manager, ref_passage, entry.get('revised', {}).get('passage', '') if evaluate_reviewed else entry.get('passage', '')))
-                for entry in annotated_data if entry.get('revised') or entry.get('passage')
-            ]
-        else:  # SBERT
-            similarity_scores = [
-                (entry.get('revised', entry) if evaluate_reviewed else entry, sbert_phrase_similarity(manager, ref_passage, entry.get('revised', {}).get('passage', '') if evaluate_reviewed else entry.get('passage', '')))
-                for entry in annotated_data if entry.get('revised') or entry.get('passage')
-            ]
+        similarity_scores = [
+            (entry.get('revised', entry) if evaluate_reviewed else entry,
+             fasttext_phrase_similarity(manager, ref_passage, entry.get('revised', {}).get('passage', '') if evaluate_reviewed else entry.get('passage', '')))
+            for entry in annotated_data if entry.get('revised') or entry.get('passage')
+        ]
         similar_entries = [entry for entry, score in similarity_scores if score > 0.9]
 
         if len(similar_entries) == 1:
@@ -593,29 +552,28 @@ def calculate_single_annotation_similarity(manager: ModelManager, ref_ann: Dict,
     if not requirement_match:
         return 0
 
-    if manager.current_model == 'fasttext':
-        if 'value' not in ref_ann or 'value' not in ann:
-            logging.warning(f"Value not found in annotation: {ref_ann}, {ann}")
-            return 0
-        if not isinstance(ref_ann['value'], str) or not isinstance(ann['value'], str):
-            logging.warning(f"Value not a string: {ref_ann['value']}, {ann['value']} with types {type(ref_ann['value'])}, {type(ann['value'])}")
-            return 0
+    if 'value' not in ref_ann or 'value' not in ann:
+        logging.warning(f"Value not found in annotation: {ref_ann}, {ann}")
+        return 0
+    if not isinstance(ref_ann['value'], str) or not isinstance(ann['value'], str):
+        logging.warning(f"Value not a string: {ref_ann['value']}, {ann['value']} with types {type(ref_ann['value'])}, {type(ann['value'])}")
+        return 0
 
-        value_similarity = fasttext_phrase_similarity(manager, ref_ann['value'], ann['value'])
-    else:  # SBERT
-        value_similarity = sbert_phrase_similarity(manager, ref_ann['value'], ann['value'])
+    value_similarity = fasttext_phrase_similarity(manager, ref_ann['value'], ann['value'])
 
     return value_similarity
 
 
 def main():
     argparser = argparse.ArgumentParser(description="Embedding Evaluation Tool")
-    argparser.add_argument('--model', default='fasttext', choices=['fasttext', 'sbert'], help="Select the model to use.")
     argparser.add_argument('--create-dataset', action='store_true', help="Create a dataset from the files in the 'data' folder.")
     argparser.add_argument('--compare-files', nargs=2, metavar=('file1', 'file2'), help="Compare annotations in two files.")
     argparser.add_argument('--compare-phrases', nargs=2, metavar=('phrase1', 'phrase2'), help="Compare two phrases.")
     argparser.add_argument('--fine-tune', action='store_true', help="Fine-tune the selected model on the created dataset.")
+    argparser.add_argument('--train', action='store_true', help="Train a new FastText model from scratch.")
     argparser.add_argument('--download-model', action='store_true', help="Download the selected model.")
+    argparser.add_argument('--model-type', type=str, choices=['pretrained', 'custom', 'finetuned'], help="Specify the type of model to use for the evaluation.",
+                           default='pretrained')
     argparser.add_argument('--evaluate', action='store_true', help="Evaluate annotations against reference annotations.")
     argparser.add_argument('--run-id', type=str, help="Run ID for evaluation.")
     argparser.add_argument('--evaluate-reviewed', action='store_true', help="Evaluate reviewed annotations instead of regular annotations", default=False)
@@ -636,25 +594,33 @@ def main():
         create_dataset(tokenizer)
         return
 
-    # Initialize the model manager
-    manager = ModelManager()
-
     if args.download_model:
-        if args.model == 'fasttext':
-            manager.download_fasttext_model()
-        elif args.model == 'sbert':
-            print("SBERT model will be downloaded automatically when needed.")
+        manager = ModelManager()
+        manager.download_pretrained_fasttext_model()
         return
 
-    if args.model == 'fasttext':
-        manager.load_fasttext_model()
-    elif args.model == 'sbert':
-        if os.path.exists(manager.sbert_finetuned_path):
-            manager.load_finetuned_sbert_model(manager.sbert_finetuned_path)
+    if args.train:
+        dataset_path = os.path.join(DATA_DIR, 'dataset.txt')
+        if os.path.exists(dataset_path):
+            print('Checkpoint')
+            dataset = load_sentences(dataset_path)
+            manager = ModelManager(fasttext_model_name="custom-model")
+            manager.train_fasttext_model(dataset, epochs=15)
         else:
-            manager.load_sbert_model()
+            print("Dataset not found. Please create the dataset first using --create-dataset.")
+        return
+
+    if args.model_type == 'pretrained':
+        manager = ModelManager()
+        manager.load_pretrained_fasttext_model()
+    elif args.model_type == 'custom':
+        manager = ModelManager(fasttext_model_name="custom-model")
+        manager.load_custom_fasttext_model()
+    elif args.model_type == 'finetuned':
+        manager = ModelManager()
+        manager.load_finetuned_fasttext_model()
     else:
-        print("Invalid model selected. Please choose either 'fasttext' or 'sbert'.")
+        print("Please provide a valid model type.")
         sys.exit(1)
 
     if args.evaluate:
@@ -664,36 +630,18 @@ def main():
         print(f"Evaluating {'reviewed ' if args.evaluate_reviewed else ''}annotations for {args.run_id}...\n\n")
         evaluate_annotations(manager, args.run_id, args.evaluate_reviewed)
     elif args.compare_files:
-        if args.model == 'fasttext':
-            compare_annotations_fasttext(manager, args.compare_files[0], args.compare_files[1])
-        elif args.model == 'sbert':
-            compare_annotations_sbert(manager, args.compare_files[0], args.compare_files[1])
+        compare_annotations_fasttext(manager, args.compare_files[0], args.compare_files[1])
     elif args.compare_phrases:
-        if args.model == 'fasttext':
-            compare_phrases_fasttext(manager, args.compare_phrases[0], args.compare_phrases[1])
-        elif args.model == 'sbert':
-            compare_phrases_sbert(manager, args.compare_phrases[0], args.compare_phrases[1])
+        compare_phrases_fasttext(manager, args.compare_phrases[0], args.compare_phrases[1])
     elif args.fine_tune:
-        if args.model == 'fasttext':
-            dataset_path = os.path.join(DATA_DIR, 'dataset.txt')
-            if os.path.exists(dataset_path):
-                manager.fine_tune_fasttext_model(dataset_path)
-            else:
-                print("Dataset not found. Please create the dataset first using --create-dataset.")
-        elif args.model == 'sbert':
-            dataset_path = os.path.join(DATA_DIR, 'dataset.txt')
-            if os.path.exists(dataset_path):
-                manager.load_sbert_model()
-                manager.fine_tune_sbert_unsupervised(dataset_path)
-            else:
-                print("Dataset not found. Please create the dataset first using --create-dataset.")
+        dataset_path = os.path.join(DATA_DIR, 'dataset.txt')
+        if os.path.exists(dataset_path):
+            manager.fine_tune_fasttext_model(dataset_path)
+        else:
+            print("Dataset not found. Please create the dataset first using --create-dataset.")
     else:
         print("No valid arguments provided. Please use one of the following options:")
-        print("  --create-dataset: Create a dataset from the files in the 'data' folder.")
-        print("  --compare-files <file1> <file2>: Compare annotations in two files.")
-        print("  --compare-phrases <phrase1> <phrase2>: Compare two phrases.")
-        print("  --fine-tune: Fine-tune the selected model on the created dataset.")
-        print("  --evaluate --run-id <run_id>: Evaluate annotations against reference annotations.")
+        print(argparser.print_help())
 
 
 if __name__ == '__main__':
