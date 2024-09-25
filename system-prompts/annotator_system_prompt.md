@@ -68,10 +68,10 @@ Your input will be a JSON object containing the type of HTML tag, a list of cont
   ],
   "passage": "We receive updated delivery and address information from our carriers to correct our records and deliver your next purchase more easily.",
   "annotations": [
-    {"requirement": "Data Categories", "value": "delivery and address information", "generalized_value": "contact information"},
-    {"requirement": "Source of Data", "value": "our carriers", "generalized_value": "third-party sources"},
-    {"requirement": "Processing Purpose", "value": "correct our records", "generalized_value": "data accuracy"},
-    {"requirement": "Processing Purpose", "value": "deliver your next purchase more easily", "generalized_value": "service improvement"}
+    {"requirement": "Data Categories", "value": "delivery and address information", "generalized_value": "contact information", "performed":  true},
+    {"requirement": "Source of Data", "value": "our carriers", "generalized_value": "third-party sources", "performed":  true},
+    {"requirement": "Processing Purpose", "value": "correct our records", "generalized_value": "data accuracy", "performed":  true},
+    {"requirement": "Processing Purpose", "value": "deliver your next purchase more easily", "generalized_value": "service improvement", "performed":  true}
   ]
 }
 ```
