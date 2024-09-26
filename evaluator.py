@@ -47,6 +47,11 @@ class ModelManager:
         zip_path = os.path.join(FASTTEXT_DIR, self.fasttext_model_name, 'wiki-news-300d-1M-subword.bin.zip')
         bin_path = os.path.join(FASTTEXT_DIR, self.fasttext_model_name, 'wiki-news-300d-1M-subword.bin')
 
+        """ alternative pretrained model on a larger common crawl corpus"""
+        # url = 'https://dl.fbaipublicfiles.com/fasttext/vectors-english/crawl-300d-2M-subword.zip'
+        # zip_path = os.path.join(FASTTEXT_DIR, self.fasttext_model_name, 'crawl-300d-2M-subword.bin.zip')
+        # bin_path = os.path.join(FASTTEXT_DIR, self.fasttext_model_name, 'crawl-300d-2M-subword.bin')
+
         # Download the zip file if it does not exist
         if not os.path.exists(zip_path):
             print("Downloading pre-trained FastText binary model...")
@@ -471,6 +476,9 @@ def evaluate_file(manager: ModelManager, llm_name: str, reference_data: List[Dic
 
 
 def calculate_requirements_stats(ref_annotations: List[Dict], annotated_annotations: List[Dict]) -> (float, int, int):
+    if not ref_annotations and not annotated_annotations:
+        return 1.0, 0, 0
+
     ref_requirements = {ann['requirement'] for ann in ref_annotations}
     annotated_requirements = {ann['requirement'] for ann in annotated_annotations}
 
