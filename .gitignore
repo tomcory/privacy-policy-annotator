@@ -6,11 +6,5 @@ output
 res
 manual_review
 *.log
-MAPP_Corpus
-OPP-115
-fasttext_dataset
-embedding_data
-embedding_models
-set-of-50
+evaluation
 __pycache__
-reference_annotations

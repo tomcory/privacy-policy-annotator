@@ -17,8 +17,8 @@ from typing import List, Dict
 from src import api_wrapper
 
 # Define constants for file paths
-POLICY_ANALYSIS_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-EVALUATION_DIR = os.path.dirname(os.path.abspath(__file__))
+POLICY_ANALYSIS_DIR = os.path.dirname(os.path.abspath(__file__))
+EVALUATION_DIR = os.path.join(POLICY_ANALYSIS_DIR, 'evaluation')
 DATA_DIR = os.path.join(EVALUATION_DIR, 'embedding_data')
 MODELS_DIR = os.path.join(EVALUATION_DIR, 'embedding_models')
 FASTTEXT_DIR = os.path.join(MODELS_DIR, 'fasttext')
