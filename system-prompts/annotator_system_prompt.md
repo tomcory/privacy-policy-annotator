@@ -36,6 +36,13 @@ Your input will be a JSON object containing the type of HTML tag, a list of cont
   - If user data is implied (e.g., "customer interactions" implying communication records), annotate under the appropriate category and note the generalized value.
   - Use the context provided to clarify vague references to user data.
 
+- **Annotation Items:**
+  - Each one of your annotations should contain the following keys: `requirement`, `value`, `generalized_value`, and `performed`.
+  - The `requirement` key should contain the GDPR principle referred to in the exact segment of the passage that you are annotating.
+  - The `value` key should contain the exact section of the passage that is described by the transparency requirement.
+  - The `generalized_value` key should contain the generalized category of the data described in the `value` key.
+  - The `performed` key should denote whether the policy meets the transparency requirement. If a company declares that they collect a certain form of data, for example, this should be marked as `true`. If they explicitly state that they do not collect a certain form of data, this should be marked as `false`.
+
 - **Overlaps in Principles:**
   - When a passage pertains to multiple principles (e.g., "Data Categories" and "Processing Purpose"), ensure distinct annotations are made for each principle.
 

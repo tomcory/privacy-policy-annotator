@@ -33,7 +33,6 @@ class ModelManager:
     def __init__(self, fasttext_model_name="wiki-news-300d-1M-subword"):
         self.fasttext_model_name = fasttext_model_name
         self.fasttext_model = None
-        self.current_model = None
 
         # Define model paths
         self.fasttext_pretrained_path = os.path.join(FASTTEXT_DIR, self.fasttext_model_name, f"{self.fasttext_model_name}.bin")
@@ -83,7 +82,6 @@ class ModelManager:
         self.fasttext_model = gensim.models.fasttext.load_facebook_model(self.fasttext_pretrained_path)
         print("Pre-trained FastText model loaded successfully.")
 
-        self.current_model = 'fasttext_pretrained'
         return self.fasttext_model
 
     def load_finetuned_fasttext_model(self):
@@ -95,10 +93,9 @@ class ModelManager:
             print("Loading fine-tuned FastText model...")
             self.fasttext_model = FastText.load(self.fasttext_finetuned_path)
             print("Fine-tuned FastText model loaded successfully.")
-            self.current_model = 'fasttext_finetuned'
             return self.fasttext_model
         else:
-            print("Warning: Fine-tuned FastText model not found.")
+            print(f"Warning: Fine-tuned FastText model not found. Path: {self.fasttext_finetuned_path}")
             sys.exit(1)
 
     def load_custom_fasttext_model(self):
@@ -110,7 +107,6 @@ class ModelManager:
             print("Loading custom FastText model...")
             self.fasttext_model = FastText.load(self.fasttext_custom_path)
             print("Custom FastText model loaded successfully.")
-            self.current_model = 'fasttext_custom'
             return self.fasttext_model
         else:
             print("Warning: Custom FastText model not found.")
@@ -140,7 +136,7 @@ class ModelManager:
         print(f"Vocabulary updated. Number of unique tokens: {len(self.fasttext_model.wv)}")
 
         # Fine-tune the model
-        print("Training FastText model...")
+        print("Fine-tuning FastText model...")
         self.fasttext_model.train(
             corpus_iterable=tokenized_data,
             total_examples=len(tokenized_data),
@@ -152,8 +148,6 @@ class ModelManager:
         # Save the fine-tuned model
         self.fasttext_model.save(self.fasttext_finetuned_path)
         print(f"FastText model saved successfully at {self.fasttext_finetuned_path}.")
-
-        self.current_model = 'fasttext'
 
     def train_fasttext_model(self, dataset, vector_size=600, window=10, min_count=1, epochs=10, sg=1):
         """
@@ -356,8 +350,8 @@ def evaluate_annotations(manager: ModelManager, run_id: str, evaluate_reviewed: 
     annotated_dir = os.path.join(output_dir, 'annotated')
     reviewed_dir = os.path.join(output_dir, 'reviewed')
     reference_dir = os.path.join(EVALUATION_DIR, 'reference_annotations')
-    evaluation_dir = os.path.join(output_dir, 'evaluated')
-    os.makedirs(evaluation_dir, exist_ok=True)
+    evaluated_dir = os.path.join(output_dir, 'evaluated')
+    os.makedirs(evaluated_dir, exist_ok=True)
 
     id_file_path = os.path.join(output_dir, 'id_file.txt')
     with open(id_file_path, 'r') as id_file:
@@ -377,7 +371,7 @@ def evaluate_annotations(manager: ModelManager, run_id: str, evaluate_reviewed: 
                 logging.warning(f"Model '{llm_name}' not found in the list of available models.")
                 print(f"Model '{llm_name}' not found in the list of available models. Skipping...")
                 continue
-            evaluate_annotations_for_llm_model(manager, llm_name, package_names, annotated_dir if not evaluate_reviewed else reviewed_dir, reference_dir, evaluation_dir,
+            evaluate_annotations_for_llm_model(manager, llm_name, package_names, annotated_dir if not evaluate_reviewed else reviewed_dir, reference_dir, evaluated_dir,
                                                evaluate_reviewed)
     else:
         # if no model_file.txt file exists, assume that the evaluation is to be done for a single model
@@ -391,7 +385,7 @@ def evaluate_annotations(manager: ModelManager, run_id: str, evaluate_reviewed: 
             logging.error(f"No valid model name found in the file name '{first_file}'.")
             print(f"No valid model name found in the file name '{first_file}'. Exiting...")
             return
-        evaluate_annotations_for_llm_model(manager, llm_name, package_names, annotated_dir if not evaluate_reviewed else reviewed_dir, reference_dir, evaluation_dir,
+        evaluate_annotations_for_llm_model(manager, llm_name, package_names, annotated_dir if not evaluate_reviewed else reviewed_dir, reference_dir, evaluated_dir,
                                            evaluate_reviewed)
 
 
