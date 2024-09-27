@@ -17,11 +17,11 @@ from typing import List, Dict
 from src import api_wrapper
 
 # Define constants for file paths
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR = os.path.join(BASE_DIR, 'embedding_data')
-MODELS_DIR = os.path.join(BASE_DIR, 'embedding_models')
+POLICY_ANALYSIS_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+EVALUATION_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.join(EVALUATION_DIR, 'embedding_data')
+MODELS_DIR = os.path.join(EVALUATION_DIR, 'embedding_models')
 FASTTEXT_DIR = os.path.join(MODELS_DIR, 'fasttext')
-SBERT_DIR = os.path.join(MODELS_DIR, 'sbert')
 
 
 class ModelNotFoundError(Exception):
@@ -43,9 +43,9 @@ class ModelManager:
     def download_pretrained_fasttext_model(self):
         print("Downloading FastText model...")
         os.makedirs(os.path.join(FASTTEXT_DIR, self.fasttext_model_name), exist_ok=True)
-        url = 'https://dl.fbaipublicfiles.com/fasttext/vectors-english/wiki-news-300d-1M-subword.bin.zip'
-        zip_path = os.path.join(FASTTEXT_DIR, self.fasttext_model_name, 'wiki-news-300d-1M-subword.bin.zip')
-        bin_path = os.path.join(FASTTEXT_DIR, self.fasttext_model_name, 'wiki-news-300d-1M-subword.bin')
+        url = f'https://dl.fbaipublicfiles.com/fasttext/vectors-english/{self.fasttext_model_name}.bin.zip'
+        zip_path = os.path.join(FASTTEXT_DIR, self.fasttext_model_name, f'{self.fasttext_model_name}.bin.zip')
+        bin_path = os.path.join(FASTTEXT_DIR, self.fasttext_model_name, f'{self.fasttext_model_name}.bin')
 
         """ alternative pretrained model on a larger common crawl corpus"""
         # url = 'https://dl.fbaipublicfiles.com/fasttext/vectors-english/crawl-300d-2M-subword.zip'
@@ -352,11 +352,11 @@ def evaluate_annotations_for_llm_model(manager: ModelManager, llm_name: str, pac
 
 
 def evaluate_annotations(manager: ModelManager, run_id: str, evaluate_reviewed: bool):
-    output_dir = os.path.join(BASE_DIR, 'output', run_id)
+    output_dir = os.path.join(POLICY_ANALYSIS_DIR, 'output', run_id)
     annotated_dir = os.path.join(output_dir, 'annotated')
     reviewed_dir = os.path.join(output_dir, 'reviewed')
-    reference_dir = os.path.join(BASE_DIR, 'reference_annotations')
-    evaluation_dir = os.path.join(output_dir, 'evaluation')
+    reference_dir = os.path.join(EVALUATION_DIR, 'reference_annotations')
+    evaluation_dir = os.path.join(output_dir, 'evaluated')
     os.makedirs(evaluation_dir, exist_ok=True)
 
     id_file_path = os.path.join(output_dir, 'id_file.txt')
@@ -591,7 +591,6 @@ def main():
     os.makedirs(DATA_DIR, exist_ok=True)
     os.makedirs(MODELS_DIR, exist_ok=True)
     os.makedirs(FASTTEXT_DIR, exist_ok=True)
-    os.makedirs(SBERT_DIR, exist_ok=True)
 
     if not tokenizer_downloaded():
         download_tokenizer()
