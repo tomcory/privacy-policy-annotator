@@ -4,6 +4,7 @@ import sys
 import nltk
 import json
 import gensim
+import timeit
 import logging
 import argparse
 import rapidfuzz
@@ -91,8 +92,9 @@ class ModelManager:
 
         if os.path.exists(self.fasttext_finetuned_path):
             print("Loading fine-tuned FastText model...")
+            start = timeit.default_timer()
             self.fasttext_model = FastText.load(self.fasttext_finetuned_path)
-            print("Fine-tuned FastText model loaded successfully.")
+            print(f"Fine-tuned FastText model loaded in {timeit.default_timer() - start:.2f} seconds.")
             return self.fasttext_model
         else:
             print(f"Warning: Fine-tuned FastText model not found. Path: {self.fasttext_finetuned_path}")
@@ -105,8 +107,9 @@ class ModelManager:
 
         if os.path.exists(self.fasttext_custom_path):
             print("Loading custom FastText model...")
+            start = timeit.default_timer()
             self.fasttext_model = FastText.load(self.fasttext_custom_path)
-            print("Custom FastText model loaded successfully.")
+            print(f"Custom FastText model loaded in {timeit.default_timer() - start:.2f} seconds.")
             return self.fasttext_model
         else:
             print("Warning: Custom FastText model not found.")
@@ -137,13 +140,14 @@ class ModelManager:
 
         # Fine-tune the model
         print("Fine-tuning FastText model...")
+        start = timeit.default_timer()
         self.fasttext_model.train(
             corpus_iterable=tokenized_data,
             total_examples=len(tokenized_data),
             epochs=15,
             compute_loss=True
         )
-        print("FastText model fine-tuned successfully.")
+        print(f"Fine-tuning completed in {timeit.default_timer() - start:.2f} seconds.")
 
         # Save the fine-tuned model
         self.fasttext_model.save(self.fasttext_finetuned_path)
@@ -161,7 +165,7 @@ class ModelManager:
         :param sg: Training algorithm: 1 for skip-gram; otherwise CBOW (default: 1)
         """
         print("Training new FastText model...")
-
+        start = timeit.default_timer()
         # Initialize and train the FastText model
         self.fasttext_model = FastText(
             sentences=dataset,
@@ -172,8 +176,7 @@ class ModelManager:
             epochs=epochs,
             sg=sg
         )
-
-        print("FastText model training completed.")
+        print(f"Training completed in {timeit.default_timer() - start:.2f} seconds.")
 
         # Save the trained model
         os.makedirs(os.path.dirname(self.fasttext_custom_path), exist_ok=True)
@@ -183,7 +186,6 @@ class ModelManager:
     def get_fasttext_phrase_embedding(self, phrase: str) -> np.ndarray:
         words = phrase.strip().split()
         if not words:
-            logging.warning(f"Empty phrase: '{phrase}'. Continuing with an empty vector.")
             return np.zeros(self.fasttext_model.vector_size)
 
         vectors = [self.fasttext_model.wv[word] for word in words]
@@ -297,13 +299,9 @@ def compare_annotations_fasttext(manager: ModelManager, file1: str, file2: str):
 
     for i, (ann1, ann2) in enumerate(zip(annotations1, annotations2)):
         if ann1['passage'] != ann2['passage']:
-            print(f"Passage mismatch at index {i}:")
-            print(f"File 1: {ann1['passage']}")
-            print(f"File 2: {ann2['passage']}")
             continue
 
         if not ann1['annotations'] and not ann2['annotations']:
-            print(f"No annotations from both LLMs for passage at index {i}.")
             continue
 
         shorter_list = ann1['annotations'] if len(ann1['annotations']) < len(ann2['annotations']) else ann2['annotations']
@@ -312,7 +310,6 @@ def compare_annotations_fasttext(manager: ModelManager, file1: str, file2: str):
             similarity_scores = [fasttext_phrase_similarity(manager, ann['value'], other_ann['value']) for other_ann in ann2['annotations']]
             total_similarity += max(similarity_scores)
         similarity_score = total_similarity / len(shorter_list)
-        print(f"Average similarity score for passage at index {i}: {similarity_score:.4f}")
 
 
 def compare_phrases_fasttext(manager: ModelManager, phrase1: str, phrase2: str):
@@ -408,10 +405,10 @@ def evaluate_file(manager: ModelManager, llm_name: str, reference_data: List[Dic
             else:
                 matching_entry = next((entry for entry in annotated_data if entry.get('passage', '').lower().strip() == ref_passage), None)
         except KeyError as ke:
-            logging.error(f"KeyError for passage: {ref_passage[:50]} in entry: {ref_entry}: {ke}")
+            logging.debug(f"KeyError for passage: {ref_passage[:50]} in entry: {ref_entry}: {ke}")
             matching_entry = None
         except AttributeError as ae:
-            logging.error(f"AttributeError for passage: {ref_passage[:50]} in entry: {ref_entry}: {ae}")
+            logging.debug(f"AttributeError for passage: {ref_passage[:50]} in entry: {ref_entry}: {ae}")
             matching_entry = None
 
         if not matching_entry:
@@ -420,10 +417,9 @@ def evaluate_file(manager: ModelManager, llm_name: str, reference_data: List[Dic
         if matching_entry:
             try:
                 if 'annotations' not in ref_entry or 'annotations' not in matching_entry or (matching_entry.get('annotations') is None and ref_entry.get('annotations') is not None):
-                    logging.warning(f"No annotations found for passage: {ref_passage[:50]} for LLM '{llm_name}'")
-                    matching_entry['correct_requirements_ratio'] = 0
-                    matching_entry['false_positives'] = 0
-                    matching_entry['false_negatives'] = 0
+                    matching_entry['correct_requirements_ratio'] = -1.0
+                    matching_entry['false_positives'] = 0.0
+                    matching_entry['false_negatives'] = 0.0
                     matching_entry['reason'] = "No annotations found for this passage."
                 else:
                     correct_requirements_ratio, false_positives, false_negatives = calculate_requirements_stats(ref_entry['annotations'], matching_entry['annotations'])
@@ -432,33 +428,35 @@ def evaluate_file(manager: ModelManager, llm_name: str, reference_data: List[Dic
                     matching_entry['false_negatives'] = false_negatives
 
                     for ref_ann in ref_entry['annotations']:
-                        best_match, semantic_similarity, word_level_similarity = find_best_matching_annotation(manager, ref_ann, matching_entry['annotations'])
+                        best_match, semantic_similarity, word_level_similarity, performed_match = find_best_matching_annotation(manager, ref_ann, matching_entry['annotations'])
                         if best_match:
                             if 'semantic_similarity' in best_match and 'word_level_similarity' in best_match:
                                 if semantic_similarity > best_match['semantic_similarity']:
-                                    best_match['semantic_similarity'] = float(semantic_similarity)
-                                    best_match['word_level_similarity'] = float(word_level_similarity)
+                                    best_match['semantic_similarity'] = round(float(semantic_similarity), 6)
+                                    best_match['word_level_similarity'] = round(float(word_level_similarity), 6)
+                                    best_match['performed_match'] = performed_match
                                 else:
                                     continue
                             else:
-                                best_match['semantic_similarity'] = float(semantic_similarity)
-                                best_match['word_level_similarity'] = float(word_level_similarity)
+                                best_match['semantic_similarity'] = round(float(semantic_similarity), 6)
+                                best_match['word_level_similarity'] = round(float(word_level_similarity), 6)
+                                best_match['performed_match'] = performed_match
 
                     # Handle annotations made by the contender model that were not found in the reference data
                     for ann in matching_entry['annotations']:
                         if 'semantic_similarity' not in ann and 'word_level_similarity' not in ann:
-                            ann['semantic_similarity'] = 0.0
-                            ann['word_level_similarity'] = 0.0
+                            ann['semantic_similarity'] = -1.0
+                            ann['word_level_similarity'] = -1.0
                             ann['reason'] = "This annotation was not made by the reference model"
             except Exception as e:
                 logging.error(f"Error processing annotations for passage: {ref_passage[:50]}: {e}", exc_info=True)
-                matching_entry['correct_requirements_ratio'] = 0
+                matching_entry['correct_requirements_ratio'] = -1.0
                 matching_entry['false_positives'] = 0
                 matching_entry['false_negatives'] = 0
                 matching_entry['reason'] = f"Error processing annotations: {str(e)}"
         else:
             matching_entry = ref_entry.copy()
-            matching_entry['correct_requirements_ratio'] = 0
+            matching_entry['correct_requirements_ratio'] = -1.0
             matching_entry['false_positives'] = 0
             matching_entry['false_negatives'] = 0
             matching_entry['reason'] = "This entry was not found in the annotated data and was therefore copied from the reference data."
@@ -485,10 +483,11 @@ def calculate_requirements_stats(ref_annotations: List[Dict], annotated_annotati
     return correct_requirements_percentage, false_positives, false_negatives
 
 
-def find_best_matching_annotation(manager: ModelManager, ref_ann: Dict, annotated_annotations: List[Dict]) -> (Dict, float, float):
+def find_best_matching_annotation(manager: ModelManager, ref_ann: Dict, annotated_annotations: List[Dict]) -> (Dict, float, float, float):
     best_match = None
     best_semantic_similarity = 0
     best_word_level_similarity = 0
+    performed_match = -1.0
 
     for ann in annotated_annotations:
         if ann['requirement'] == ref_ann['requirement']:
@@ -498,15 +497,21 @@ def find_best_matching_annotation(manager: ModelManager, ref_ann: Dict, annotate
 
                 semantic_similarity = fasttext_phrase_similarity(manager, ref_ann['value'], ann['value'])
                 word_level_similarity = rapidfuzz.fuzz.ratio(ref_ann['value'], ann['value'], processor=rapidfuzz.utils.default_process) / 100.0
+                ref_performed = ref_ann.get('performed')
+                ann_performed = ann.get('performed')
+                if isinstance(ref_performed, bool) and isinstance(ann_performed, bool):
+                    performed_match = 1.0 if ref_performed == ann_performed else 0.0
+                else:
+                    performed_match = -1.0
 
                 if semantic_similarity > best_semantic_similarity:
                     best_match = ann
                     best_semantic_similarity = semantic_similarity
                     best_word_level_similarity = word_level_similarity
             except ValueError as e:
-                logging.error(f"Error processing annotation values: {e}", exc_info=True)
+                logging.debug(f"Error processing annotation values: {e}", exc_info=True)
 
-    return best_match, best_semantic_similarity, best_word_level_similarity
+    return best_match, best_semantic_similarity, best_word_level_similarity, performed_match
 
 
 def find_similar_passage(manager: ModelManager, ref_passage: str, annotated_data: List[Dict], evaluate_reviewed: bool) -> Dict:
@@ -525,7 +530,7 @@ def find_similar_passage(manager: ModelManager, ref_passage: str, annotated_data
         else:
             logging.info(f"No similar passage found for: {ref_passage[:50]}...")
     except Exception as e:
-        logging.error(f"Error finding similar passage for: {ref_passage[:50]}: {e}")
+        logging.debug(f"Error finding similar passage for: {ref_passage[:50]}: {e}")
 
     return None
 
@@ -555,10 +560,10 @@ def calculate_single_annotation_similarity(manager: ModelManager, ref_ann: Dict,
         return 0
 
     if 'value' not in ref_ann or 'value' not in ann:
-        logging.warning(f"Value not found in annotation: {ref_ann}, {ann}")
+        logging.debug(f"Value not found in annotation: {ref_ann}, {ann}")
         return 0
     if not isinstance(ref_ann['value'], str) or not isinstance(ann['value'], str):
-        logging.warning(f"Value not a string: {ref_ann['value']}, {ann['value']} with types {type(ref_ann['value'])}, {type(ann['value'])}")
+        logging.debug(f"Value not a string: {ref_ann['value']}, {ann['value']} with types {type(ref_ann['value'])}, {type(ann['value'])}")
         return 0
 
     value_similarity = fasttext_phrase_similarity(manager, ref_ann['value'], ann['value'])

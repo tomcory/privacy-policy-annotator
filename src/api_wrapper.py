@@ -116,16 +116,20 @@ async def _send_ollama_request(
     """
 
     # calculate the token count of the prompt
-    encoding = tiktoken.get_encoding('o200k_base')
+    encoding = tiktoken.get_encoding('gpt2')
     prompt_token_count = len(encoding.encode(prompt))
     system_prompt_token_count = len(encoding.encode(system_prompt))
+    total_token_count = prompt_token_count + system_prompt_token_count
 
     logging.debug(
         f'Querying model {model_code} with:\nUser prompt: {prompt}\nSystem prompt: {system_prompt[:100]}...\nOptions: {options}\n'
         f'Output format: {output_format if output_format else "default"}\n'
         f'User prompt token count: {prompt_token_count}\nSystem prompt token count: {system_prompt_token_count}'
     )
-    logging.info(f'Querying model {model_code} with {prompt_token_count + system_prompt_token_count} tokens...')
+    logging.info(f'Querying model {model_code} with {total_token_count} tokens...')
+
+    options['num_ctx'] = min(total_token_count + 1000, 6144)
+    logging.debug(f'Using context window of {options["num_ctx"]} tokens.')
 
     try:
         response = _process_ollama_response(
@@ -487,10 +491,6 @@ class OllamaApiWrapper(BaseApiWrapper):
         model_info = self.get_model_info(model)
         model_size = model_info['model_info']['general.parameter_count']
         logging.debug(f'Model {model} has {model_size} parameters.')
-
-        if model_size >= 20_000_000_000 and task in ['annotator', 'reviewer', 'fixer']:
-            context_window = min(context_window, 6144)
-            logging.debug(f'Model {model} has more than 20B parameters, setting context window to {context_window}')
 
         options = {
             'temperature': temperature,
