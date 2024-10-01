@@ -128,8 +128,8 @@ async def _send_ollama_request(
     )
     logging.info(f'Querying model {model_code} with {total_token_count} tokens...')
 
-    options['num_ctx'] = min(total_token_count + 1000, 6144)
-    logging.debug(f'Using context window of {options["num_ctx"]} tokens.')
+    # options['num_ctx'] = min(total_token_count + 1000, 6144)
+    # logging.debug(f'Using context window of {options["num_ctx"]} tokens.')
 
     try:
         response = _process_ollama_response(
@@ -491,6 +491,14 @@ class OllamaApiWrapper(BaseApiWrapper):
         model_info = self.get_model_info(model)
         model_size = model_info['model_info']['general.parameter_count']
         logging.debug(f'Model {model} has {model_size} parameters.')
+
+        # find the highest token count in the user messages
+        max_user_token_count = max([len(tiktoken.get_encoding('gpt2').encode(msg)) for msg in user_msgs])
+        # calculate token count of the system message
+        system_token_count = len(tiktoken.get_encoding('gpt2').encode(system_msg))
+        if task in ['annotator', 'reviewer', 'fixer']:
+            context_window = min(max_user_token_count + system_token_count + 1000, 6144)
+            logging.debug(f'Setting context window to {context_window} tokens for task {task}.')
 
         options = {
             'temperature': temperature,

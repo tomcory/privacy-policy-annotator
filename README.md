@@ -174,3 +174,7 @@ This project is licensed under [GPLv3](https://www.gnu.org/licenses/gpl-3.0.html
 ## Acknowledgments
 
 This project is being developed by a team of researchers and students lead by Thomas Cory at the [Service-centric Networking](https://www.tu.berlin/snet) chair at Technische Universität Berlin.
+
+---
+
+## This is the final version for the Bachelor Thesis "Evaluating Open-Source LLMs for Privacy Policy Annotation"
