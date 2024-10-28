@@ -69,19 +69,24 @@ def log_prompt_result(
 ):
     # create the output folder if it does not exist
     folder_path = f"output/{run_id}/{model_name}_responses"
-    os.makedirs(folder_path, exist_ok=True)
+    try:
+        os.makedirs(folder_path, exist_ok=True)
+    except NotADirectoryError:
+        folder_path = folder_path.replace(':', '_')
+        os.makedirs(folder_path, exist_ok=True)
+
     os.makedirs(f"{folder_path}/{task}", exist_ok=True)
 
     # log the cost, processing time and response
-    with open(f"output/{folder_path}/costs_{task}.csv", "a") as f:
+    with open(f"{folder_path}/costs_{task}.csv", "a") as f:
         f.write(f"{pkg},{cost}\n")
-    with open(f"output/{folder_path}/times_{task}.csv", "a") as f:
+    with open(f"{folder_path}/times_{task}.csv", "a") as f:
         f.write(f"{pkg},{processing_time}\n")
 
     if len(outputs) > 1:
         for i, output in enumerate(outputs):
-            with open(f"output/{folder_path}/{task}/{pkg}_{i}.{output_format}", "a") as f:
+            with open(f"{folder_path}/{task}/{pkg}_{i}.{output_format}", "a") as f:
                 f.write(output + '\n')
     else:
-        with open(f"output/{folder_path}/{task}/{pkg}.{output_format}", "a") as f:
+        with open(f"{folder_path}/{task}/{pkg}.{output_format}", "a") as f:
             f.write(outputs[0] + '\n')

@@ -7,6 +7,7 @@ from typing import Callable, Union
 from src import crawler, cleaner, detector, fixer, parser, annotator, reviewer, util, api_openai, api_ollama
 from src.api_ollama import ApiOllama
 from src.api_openai import ApiOpenAI
+from src import fixer_alt
 
 
 def prepare_batch(
@@ -283,6 +284,15 @@ def main():
         idx = sys.argv.index("-c")
         if idx + 1 < len(sys.argv):
             config_path = sys.argv[idx + 1]
+
+    if "-fixer" in sys.argv:
+        run_id = sys.argv[sys.argv.index("-run-id") + 1]
+        pkg = sys.argv[sys.argv.index("-pkg") + 1]
+        in_folder = os.path.join("output", run_id, "original")
+        out_folder = os.path.join("output", run_id, "fixed")
+        client = ApiOllama(run_id, "reader-lm0.5b")
+        fixer_alt.execute(run_id, pkg, in_folder, out_folder, "fix_headlines", client, api_ollama.models.get('reader-lm0.5b'))
+        return
 
     # parse the command line arguments or the configuration file if provided
     if config_path is not None:

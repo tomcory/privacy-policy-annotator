@@ -13,7 +13,25 @@ models = {
     'llama3': {
         'name': 'llama3:instruct',
         'api': 'ollama',
-        'encoding': 'o200k_base',
+        'encoding': 'gpt2',
+        'input_price': 0,
+        'output_price': 0,
+        'input_price_batch': 0,
+        'output_price_batch': 0
+    },
+    'llama1b': {
+        'name': 'llama3.2:1b-instruct-fp16',
+        'api': 'ollama',
+        'encoding': 'gpt2',
+        'input_price': 0,
+        'output_price': 0,
+        'input_price_batch': 0,
+        'output_price_batch': 0
+    },
+    'llama3b': {
+        'name': 'llama3.2:3b-instruct-fp16',
+        'api': 'ollama',
+        'encoding': 'gpt2',
         'input_price': 0,
         'output_price': 0,
         'input_price_batch': 0,
@@ -22,7 +40,7 @@ models = {
     'llama8b': {
         'name': 'llama3.1:8b-instruct-q4_0',
         'api': 'ollama',
-        'encoding': 'o200k_base',
+        'encoding': 'gpt2',
         'input_price': 0,
         'output_price': 0,
         'input_price_batch': 0,
@@ -31,7 +49,7 @@ models = {
     'llama8b-fp16': {
         'name': 'llama3.1:8b-instruct-fp16',
         'api': 'ollama',
-        'encoding': 'o200k_base',
+        'encoding': 'gpt2',
         'input_price': 0,
         'output_price': 0,
         'input_price_batch': 0,
@@ -40,7 +58,7 @@ models = {
     'llama70b': {
         'name': 'llama3.1:70b-instruct-q3_K_S',
         'api': 'ollama',
-        'encoding': 'o200k_base',
+        'encoding': 'gpt2',
         'input_price': 0,
         'output_price': 0,
         'input_price_batch': 0,
@@ -153,7 +171,23 @@ models = {
         'output_price': 0,
         'input_price_batch': 0,
         'output_price_batch': 0
-    }
+    },
+    'reader-lm1.5b': {
+        'name': 'reader-lm:1.5b-fp16',
+        'api': 'ollama',
+        'encoding': 'o200k_base',
+        'input_price': 0,
+        'output_price': 0,
+        'input_price_batch': 0
+    },
+    'reader-lm0.5b': {
+        'name': 'reader-lm:0.5b-fp16',
+        'api': 'ollama',
+        'encoding': 'o200k_base',
+        'input_price': 0,
+        'output_price': 0,
+        'input_price_batch': 0
+    },
 }
 
 
@@ -346,13 +380,14 @@ class ApiOllama:
             model: dict = None,
             response_format: Literal['text', 'json', 'json_schema'] = 'text',
             json_schema: dict = None,
-            temperature: float = 1.0,
+            temperature: float = 0.7,
             max_tokens: int = 2048,
             n: int = 1,
-            top_p: int = 1,
-            top_k: int = None,
+            top_p: int = 0.9,
+            top_k: int = 40,
             frequency_penalty: float = 0.0,
             presence_penalty: float = 0.0,
+            repeat_penalty: float = 1.1,
             seed: int = None,
             context_window: int = None,
             timeout: float = None
@@ -371,7 +406,7 @@ class ApiOllama:
         # calculate the length of the input messages
         system_len = len(encoding.encode(system_msg))
         user_len = len(encoding.encode(user_msg))
-        example_len = sum(len(encoding.encode(example[0])) + len(encoding.encode(example[1])) for example in examples)
+        example_len = sum(len(encoding.encode(example[0])) + len(encoding.encode(example[1])) for example in examples) if examples else 0
 
         if example_len > 0:
             print(f'Warning: Ollama does not support examples. Ignoring {example_len} tokens.')
@@ -387,6 +422,7 @@ class ApiOllama:
             'top_p': top_p,
             'top_k': top_k,
             'num_ctx': context_window,
+            'repeat_penalty': repeat_penalty,
         }
 
         output = loop.run_until_complete(_query_ollama(
