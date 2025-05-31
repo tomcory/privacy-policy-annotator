@@ -1,0 +1,26 @@
+{
+    "type": "text",
+    "context": [
+        {
+            "text": "Privacy Policy",
+            "type": "h1"
+        },
+        {
+            "text": "Your Privacy Rights",
+            "type": "h2"
+        }
+    ],
+    "passage": "To request a copy of the information disclosure provided by us, please contact us via the email address provided below. Please allow 30 days for a response.",
+    "annotations": [
+        {
+            "requirement": "Controller Contact",
+            "value": "email address provided below",
+            "performed": true
+        },
+        {
+            "requirement": "Data Retention Period",
+            "value": "30 days",
+            "performed": true
+        }
+    ]
+}

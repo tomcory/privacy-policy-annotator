@@ -1,56 +1,39 @@
 import re
-import traceback
 from typing import Union
 
-import chardet
 from bs4 import NavigableString, Comment, BeautifulSoup, Tag
 
 from src import util
-from src.api_ollama import ApiOllama
-from src.api_openai import ApiOpenAI
+from src.llm_connectors.api_ollama import ApiOllama
+from src.llm_connectors.api_openai import ApiOpenAI
+from src.state_manager import BaseStateManager
 
 
-def execute(
+async def execute(
         run_id: str,
         pkg: str,
+        task: str,
         in_folder: str,
         out_folder: str,
-        task: str,
+        state_manager: BaseStateManager,
         client: Union[ApiOpenAI, ApiOllama],
         model: dict = None,
         use_batch_result: bool = False,
         use_parallel: bool = False
 ):
-    print(">>> Cleaning %s..." % pkg)
-    file_path = "%s/%s.html" % (in_folder, pkg)
+    file_path = f"{in_folder}/{pkg}.html"
 
-    # Detect the encoding of the file
-    with open(file_path, 'rb') as file:
-        raw_data = file.read()
-        result = chardet.detect(raw_data)
-        encoding = result['encoding']
-
-    policy = util.read_from_file(file_path, encoding)
+    policy = util.read_from_file(file_path)
     cleaned = simplify_soup(policy).prettify()
 
     if len(cleaned) > 0:
-        util.write_to_file("%s/%s.html" % (out_folder, pkg), cleaned)
-
-
-def clean_policy(page) -> str:
-    try:
-        print('Attempting to clean the soup...')
-        policy = simplify_soup(page)
-        if policy is None:
-            print('Cleaning the soup failed.')
-            raise Exception
-
-        print('Cleaning the soup succeeded.')
-        return policy.prettify()
-
-    except Exception as e:
-        print('Error: Unknown exception %s' % e)
-        return ''
+        print(out_folder)
+        util.write_to_file(f"{out_folder}/{pkg}.html", cleaned)
+    else:
+        with open(f"../output/{run_id}/log/empty.txt", 'a') as empty_file:
+            empty_file.write(f"{run_id} {pkg} clean\n")
+        with open(f"../output/empty.txt", 'a') as global_empty_file:
+            global_empty_file.write(f"{run_id} {pkg} clean\n")
 
 
 def simplify_soup(page_source):
@@ -64,32 +47,24 @@ def simplify_soup(page_source):
             BeautifulSoup: The isolated and cleaned main content of the page source or None if an error occurred.
         """
 
-    try:
-        soup = BeautifulSoup(page_source, 'html.parser')
-        soup = remove_surrounding_structure(soup)
-        soup = unwrap_inline_elements(soup)
-        soup = replace_br_tags(soup)
-        soup = parse_pre_tags(soup)
-        soup = replace_special_characters(soup)
-        soup = remove_attributes(soup)
-        soup = concatenate_text(soup)
-        soup = wrap_nonterminal_text(soup)
-        soup = flatten_structure(soup)
-        soup = remove_empty_elements(soup)
+    soup = BeautifulSoup(page_source, 'html.parser')
+    soup = remove_surrounding_structure(soup)
+    soup = unwrap_inline_elements(soup)
+    soup = replace_br_tags(soup)
+    soup = parse_pre_tags(soup)
+    soup = replace_special_characters(soup)
+    soup = remove_attributes(soup)
+    soup = concatenate_text(soup)
+    soup = wrap_nonterminal_text(soup)
+    soup = flatten_structure(soup)
+    soup = remove_empty_elements(soup)
 
-        print('Soup simplified.')
-
-        return soup
-    except Exception as e:
-        print(
-            f'An error occurred while simplifying the soup: {type(e)}.')
-        traceback.print_exc()
-        return None
+    return soup
 
 
 def remove_surrounding_structure(soup: BeautifulSoup):
 
-    print('Removing surrounding structure...')
+    # print('Removing surrounding structure...')
 
     # remove all comments
     comments = soup.find_all(string=lambda text: isinstance(text, Comment))
@@ -97,7 +72,7 @@ def remove_surrounding_structure(soup: BeautifulSoup):
     for comment in comments:
         comment.extract()
         i += 1
-    print('> Removed %d comments.' % i)
+    # print('> Removed %d comments.' % i)
 
     # remove all unwanted tags
     unwanted_tags = ['head', 'title', 'meta', 'link', 'style', 'script', 'noscript', 'iframe', 'object', 'nav', 'footer']
@@ -106,7 +81,7 @@ def remove_surrounding_structure(soup: BeautifulSoup):
         for element in soup.find_all(tag):
             element.decompose()
             i += 1
-    print('> Removed %d elements based on their tag name.' % i)
+    # print('> Removed %d elements based on their tag name.' % i)
 
     # remove all tags that have classes, roles or ids related to nav, header, footer, modals, banners, etc.
     removal_counter = 0
@@ -137,7 +112,7 @@ def remove_surrounding_structure(soup: BeautifulSoup):
             removal_counter += 1
             pass
 
-    print('> Removed %d elements based on their class, role or id.' % removal_counter)
+    # print('> Removed %d elements based on their class, role or id.' % removal_counter)
 
     # if there's a main element, reduce the soup to that
     policy = soup.find("main")
@@ -160,29 +135,35 @@ def remove_surrounding_structure(soup: BeautifulSoup):
                             # some sites use the role 'main' instead of the tag itself
                             policy = soup.find("div", {"role": re.compile('.*[mM]ain.*')})
                             if policy is None:
-                                print('> No main container found.')
+                                # print('> No main container found.')
+                                pass
                             else:
-                                print('Main (class) found, reducing soup...')
+                                # print('Main (class) found, reducing soup...')
+                                pass
                         else:
-                            print('Main (role) found, reducing soup...')
+                            # print('Main (role) found, reducing soup...')
+                                pass
                     else:
-                        print('Article (id) found, reducing soup...')
+                        # print('Article (id) found, reducing soup...')
+                                pass
                 else:
-                    print('Article (class) found, reducing soup...')
+                    # print('Article (class) found, reducing soup...')
+                                pass
             else:
-                print('Article (role) found, reducing soup...')
+                # print('Article (role) found, reducing soup...')
+                                pass
         else:
-            print('Article (tag) found, reducing soup...')
+            # print('Article (tag) found, reducing soup...')
+                                pass
     else:
-        print('Main (tag) found, reducing soup...')
+        # print('Main (tag) found, reducing soup...')
+                                pass
 
     if policy is not None:
-        # print the tag that was found with its attributes
-        print('Found tag: %s' % policy)
         # remove all elements of the soup except the policy container and its children
         soup = BeautifulSoup(str(policy), 'html.parser')
 
-    print('> Reduced soup to the main content.')
+    # print('> Reduced soup to the main content.')
 
     return soup
 
@@ -202,7 +183,7 @@ def unwrap_inline_elements(
 
     headline_tags = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']
 
-    print('Transforming pseudo-headlines and unwrapping inline elements...')
+    # print('Transforming pseudo-headlines and unwrapping inline elements...')
 
     # Find all headline tags (h1 through h6)
     headlines = soup.find_all(headline_tags)
@@ -227,7 +208,7 @@ def unwrap_inline_elements(
                 inline_element.unwrap()
                 inline_counter += 1
 
-    print('> Unwrapped %d inline elements and transformed %d pseudo-headlines.' % (inline_counter, pseudo_headline_counter))
+    # print('> Unwrapped %d inline elements and transformed %d pseudo-headlines.' % (inline_counter, pseudo_headline_counter))
 
     return soup
 
@@ -249,7 +230,8 @@ def parse_pre_tags(soup: BeautifulSoup):
     all_relevant_tags = pre_tags + tags_with_white_space
 
     if all_relevant_tags:
-        print('Parsing <pre> tags (found %d)...' % len(all_relevant_tags))
+        # print('Parsing <pre> tags (found %d)...' % len(all_relevant_tags))
+        pass
     for pre in all_relevant_tags:
         try:
             # if the element has non-NavigableString children, skip it
@@ -258,10 +240,10 @@ def parse_pre_tags(soup: BeautifulSoup):
 
             # count the number of line breaks in the content
             line_breaks = pre.get_text().count('\n')
-            print('Found %d line breaks in <pre> content...' % line_breaks)
+            # print('Found %d line breaks in <pre> content...' % line_breaks)
             # Split content based on two or more consecutive line breaks, and insert each chunk as a <p> element
             chunks = re.split(r'\n', pre.get_text())
-            print('Splitting %d chunks...' % len(chunks))
+            # print('Splitting %d chunks...' % len(chunks))
             for chunk in chunks:
                 new_p = soup.new_tag('p')
                 new_p.string = chunk
@@ -333,7 +315,7 @@ def replace_special_characters(soup: BeautifulSoup):
 
 
 def concatenate_text(soup: BeautifulSoup):
-    print('Concatenating text content of elements...')
+    # print('Concatenating text content of elements...')
 
     # concatenate the text of each element
     for element in soup.find_all():
@@ -367,17 +349,14 @@ def concatenate_text(soup: BeautifulSoup):
 
 
 def wrap_nonterminal_text(soup: BeautifulSoup):
-    print('Wrapping non-terminal text in <p> elements...')
+    # print('Wrapping non-terminal text in <p> elements...')
 
     # if an element has direct text as well as children, wrap the text content in <p> elements
     for element in soup.find_all():
         if len(element.contents) > 1:
             for child in element.contents:
                 if isinstance(child, NavigableString) and child.strip():
-                    print("Wrapping non-terminal text in %s" % element.name)
-                    if element.name == "h2":
-                        for child2 in element.children:
-                            print("h2 child: %s" % child)
+                    # print("Wrapping non-terminal text in %s" % element.name)
                     new_p = soup.new_tag("p")
                     new_p.string = child
                     child.replace_with(new_p)
@@ -386,7 +365,7 @@ def wrap_nonterminal_text(soup: BeautifulSoup):
 
 
 def flatten_structure(soup: BeautifulSoup):
-    print('Flattening soup...')
+    # print('Flattening soup...')
 
     # flatten the soup, unwrapping all elements that don't have text directly within them
     allowed_wrapper_tags = ['ul', 'ol', 'li', 'table', 'thead', 'tbody', 'tr', 'td', 'th']
@@ -405,8 +384,9 @@ def flatten_structure(soup: BeautifulSoup):
             if len(tag.contents) == 1 and isinstance(tag.contents[0], Tag):
                 child = tag.contents[0]
                 # Replace the tag's content with the child's content
-                tag.clear()
-                tag.append(child.contents[0])
+                if len(child.contents) > 0:
+                    tag.clear()
+                    tag.append(child.contents[0])
 
     return soup
 

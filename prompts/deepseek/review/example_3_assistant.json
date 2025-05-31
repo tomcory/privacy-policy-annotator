@@ -1,0 +1,19 @@
+{
+    "annotations": [
+        {
+            "requirement": "Data Categories",
+            "value": "your name",
+            "performed": true
+        },
+        {
+            "requirement": "Data Categories",
+            "value": "your PLACEHOLDER email address",
+            "performed": true
+        },
+        {
+            "requirement": "Data Categories",
+            "value": "your PLACEHOLDER age",
+            "performed": false
+        }
+    ]
+}

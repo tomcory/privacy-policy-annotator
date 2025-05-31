@@ -1,0 +1,18 @@
+{
+    "type": "text",
+    "context": [
+        {
+            "text": "Privacy Policy",
+            "type": "h1"
+        },
+        {
+            "text": "Personal Data",
+            "type": "h2"
+        },
+        {
+            "text": "Disclosure and Transfer of Personal Data",
+            "type": "h3"
+        }
+    ],
+    "passage": "We may use third party service providers such as credit card processors, shipping agents, and business intelligence providers."
+}

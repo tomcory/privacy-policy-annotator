@@ -1,0 +1,14 @@
+{
+    "type": "text",
+    "context": [
+        {
+            "text": "Privacy Policy",
+            "type": "h1"
+        },
+        {
+            "text": "Your Information",
+            "type": "h2"
+        }
+    ],
+    "passage": "We may transfer your information to our partners in and outside of EU/EEA member states and the United States in accordance with mandatory legislation and this Privacy Policy."
+}

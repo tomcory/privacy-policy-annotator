@@ -1,0 +1,46 @@
+{
+    "type": "text",
+    "context": [
+        {
+            "text": "Privacy Policy",
+            "type": "h1"
+        },
+        {
+            "text": "Information Collection and Use",
+            "type": "h2"
+        }
+    ],
+    "passage": "We do not collect any personal information from our users. However, please be aware that we utilize Google Ad Manager, Facebook and other third-party services that may collect user data for ad personalization and analytics. You may request deletion of your data at any time.",
+    "annotations": [
+        {
+            "requirement": "Data Categories",
+            "value": "personal information",
+            "performed": true
+        },
+        {
+            "requirement": "Right to Access",
+            "value": "please be aware",
+            "performed": true
+        },
+        {
+            "requirement": "Data Recipients",
+            "value": "Google Ad Manager",
+            "performed": true
+        },
+        {
+            "requirement": "Data Recipients",
+            "value": "other third-party services",
+            "performed": true
+        },
+        {
+            "requirement": "Data Categories",
+            "value": "user data",
+            "performed": true
+        },
+        {
+            "requirement": "Processing Purpose",
+            "value": "ad personalization and analytics",
+            "performed": true
+        }
+    ]
+}

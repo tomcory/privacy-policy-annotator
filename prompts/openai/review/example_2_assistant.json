@@ -1,0 +1,44 @@
+{
+    "annotations": [
+        {
+            "requirement": "Data Categories",
+            "value": "personal information",
+            "performed": false
+        },
+        {
+            "requirement": "Data Recipients",
+            "value": "Google Ad Manager",
+            "performed": true
+        },
+        {
+            "requirement": "Data Recipients",
+            "value": "Facebook",
+            "performed": true
+        },
+        {
+            "requirement": "Data Recipients",
+            "value": "other third-party services",
+            "performed": true
+        },
+        {
+            "requirement": "Data Categories",
+            "value": "user data",
+            "performed": true
+        },
+        {
+            "requirement": "Processing Purpose",
+            "value": "ad personalization",
+            "performed": true
+        },
+        {
+            "requirement": "Processing Purpose",
+            "value": "analytics",
+            "performed": true
+        },
+        {
+            "requirement": "Right to Erasure",
+            "value": "You may request deletion of your data",
+            "performed": true
+        }
+    ]
+}

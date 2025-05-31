@@ -5,8 +5,9 @@ import tiktoken
 from bs4 import BeautifulSoup, NavigableString, Tag, PageElement
 
 from src import util
-from src.api_ollama import ApiOllama
-from src.api_openai import ApiOpenAI
+from src.llm_connectors.api_ollama import ApiOllama
+from src.llm_connectors.api_openai import ApiOpenAI
+from src.state_manager import BaseStateManager
 
 BLOCK_TYPES = {
     'td': 'table_cell',
@@ -23,25 +24,24 @@ BLOCK_TYPES = {
 }
 
 
-def execute(
+async def execute(
         run_id: str,
         pkg: str,
+        task: str,
         in_folder: str,
         out_folder: str,
-        task: str,
+        state_manager: BaseStateManager,
         client: Union[ApiOpenAI, ApiOllama],
         model: dict = None,
         use_batch_result: bool = False,
         use_parallel: bool = False
 ):
-    print(">>> Parsing %s..." % pkg)
-    file_path = "%s/%s.html" % (in_folder, pkg)
-
-    html = util.read_from_file(file_path)
-    output = parse_to_json(html)
-
-    file_path = "%s/%s.json" % (out_folder, pkg)
-    util.write_to_file(file_path, output)
+    try:
+        html = util.read_from_file(f"{in_folder}/{pkg}.html")
+        output = parse_to_json(html)
+        util.write_to_file(f"{out_folder}/{pkg}.json", output)
+    except Exception as e:
+        await state_manager.raise_error(error_message=str(e))
 
 
 def parse_to_json(html: str):
@@ -49,7 +49,7 @@ def parse_to_json(html: str):
         parser = Parser(html)
         return json.dumps(parser.parse(), indent=2)
     else:
-        print('Cannot parse an empty HTML document!')
+        raise Exception("Empty html")
 
 
 class Parser:
@@ -106,6 +106,9 @@ class Parser:
             self.__handle_children(element)
 
     def __handle_headline(self, element: Tag):
+        # add the headline's text as a passage
+        self.__handle_children(element)
+
         # if there's already a context entry for this headline level, trim the context accordingly
         previous_index, _ = self.__find_context_entry(element.name)
         if previous_index >= 0:

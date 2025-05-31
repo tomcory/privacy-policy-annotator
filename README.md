@@ -8,8 +8,8 @@ The following GDPR transparency requirements are considered for annotation:
 
 | Label                               | Article                         | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                     | Examples                                                                                                                                        |
 |-------------------------------------|---------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------|
-| Controller Name                     | Art. 13(1)(a) and Art. 14(1)(a) | the identity [...] of the controller and, where applicable, of the controller’s representative                                                                                                                                                                                                                                                                                                                                                                  | "ThisSpecialApp", "AppDeveloper GmbH"                                                                                                           |
-| Controller Contact                  | Art. 13(1)(a) and Art. 14(1)(a) | the [...] contact details of the controller and, where applicable, of the controller’s representative                                                                                                                                                                                                                                                                                                                                                           | "email@appdeveloper.com", "Ernst-Reuter-Platz 1, 10587 Berlin"                                                                                  |
+| Controller Name                     | Art. 13(1)(a) and Art. 14(1)(a) | the identity [...] of the controller and, where applicable, of the controller's representative                                                                                                                                                                                                                                                                                                                                                                  | "ThisSpecialApp", "AppDeveloper GmbH"                                                                                                           |
+| Controller Contact                  | Art. 13(1)(a) and Art. 14(1)(a) | the [...] contact details of the controller and, where applicable, of the controller's representative                                                                                                                                                                                                                                                                                                                                                           | "email@appdeveloper.com", "Ernst-Reuter-Platz 1, 10587 Berlin"                                                                                  |
 | DPO Contact                         | Art. 13(1)(b) and Art. 14(1)(b) | the contact details of the data protection officer, where applicable;                                                                                                                                                                                                                                                                                                                                                                                           | "dpo@bigdeveloper.com", "Ernst-Reuter-Platz 1, 10587 Berlin "                                                                                   |
 | Data Categories                     | Art Art. 14(1)(d)               | the categories of personal data concerned;                                                                                                                                                                                                                                                                                                                                                                                                                      | "Name", "Email Address", "Payment Information"                                                                                                  |
 | Processing Purpose                  | Art. 13(1)(c) and Art. 14(1)(c) | the purposes of the processing for which the personal data are intended as well as the legal basis for the processing; [...] whether the provision of personal data is a statutory or contractual requirement, or a requirement necessary to enter into a contract, as well as whether the data subject is obliged to provide the personal data and of the possible consequences of failure to provide such data;                                               | "Provide a service", "Send marketing emails"                                                                                                    |
@@ -97,46 +97,78 @@ Replace `<RUN_ID>` with your specific run ID.
 
 ### Optional Arguments
 
-- **`-id-file <FILE_PATH>`**: Path to the file containing the package names of the apps to process.
-- **`-pkg <PACKAGE_NAME>`**: Specify the package name of a single app to process.
-- **`-crawl-retries <NUMBER>`**: Set the number of retries for crawling (default is 2).
-- **`-no-crawl`**: Skip the crawling step.
+- **`-run-id <RUN_ID>`**: Required. The unique identifier for this run.
+- **`-model <MODEL_NAME>`**: Specify the default model to use for all steps.
+- **`-model-detect <MODEL_NAME>`**: Specify the model to use for the detection step.
+- **`-model-annotate <MODEL_NAME>`**: Specify the model to use for the annotation step.
+- **`-model-review <MODEL_NAME>`**: Specify the model to use for the review step.
 - **`-no-clean`**: Skip the cleaning step.
 - **`-no-detect`**: Skip the detection step.
-- **`-no-headline-fix`**: Skip the headline fixing step.
 - **`-no-parse`**: Skip the parsing step.
 - **`-no-annotate`**: Skip the annotation step.
 - **`-no-review`**: Skip the review step.
 - **`-batch-detect`**: Run the detection step in batch mode.
-- **`-batch-headline-fix`**: Run the headline fixing step in batch mode.
 - **`-batch-annotate`**: Run the annotation step in batch mode.
 - **`-batch-review`**: Run the review step in batch mode.
+- **`-parallel-prompt`**: Use parallel prompting for processing.
+- **`-custom-model`**: Use custom models for processing.
+- **`-hostname <HOSTNAME>`**: Specify the hostname for the API client.
+- **`-c <CONFIG_FILE>`**: Path to a JSON configuration file containing the above arguments.
 
 ### Example Commands
 
-1. **Running the pipeline with a specific run ID:**
+1. **Basic run with a run ID:**
 
    ```bash
    python main.py -run-id 12345
    ```
 
-2. **Running the pipeline with an ID file and custom retries:**
+2. **Run with a specific package and model:**
 
    ```bash
-   python main.py -run-id 12345 -id-file /path/to/id_file.txt -crawl-retries 3
+   python main.py -run-id 12345 -pkg com.example.app -model gpt-4
    ```
 
-3. **Skipping specific steps:**
+3. **Run with step-specific models and batch processing:**
 
    ```bash
-   python main.py -run-id 12345 -no-crawl -no-clean
+   python main.py -run-id 12345 -model-detect gpt-3.5-turbo -model-annotate gpt-4 -batch-detect -batch-annotate
    ```
 
-4. **Running specific steps in batch mode:**
+4. **Run with a configuration file:**
 
    ```bash
-   python main.py -run-id 12345 -batch-detect -batch-annotate
+   python main.py -c config.json
    ```
+
+### Configuration File Format
+
+The configuration file should be a JSON file with the following structure:
+
+```json
+{
+    "run_id": "12345",
+    "id_file": "path/to/id_file.txt",
+    "pkg": "com.example.app",
+    "default_model": "gpt-4",
+    "models": {
+        "detect": "gpt-3.5-turbo",
+        "annotate": "gpt-4",
+        "review": "gpt-4"
+    },
+    "skip_clean": false,
+    "skip_detect": false,
+    "skip_parse": false,
+    "skip_annotate": false,
+    "skip_review": false,
+    "batch_detect": true,
+    "batch_annotate": true,
+    "batch_review": false,
+    "parallel_prompt": true,
+    "use_custom_model": false,
+    "hostname": "api.example.com"
+}
+```
 
 ## Execution Flow
 
@@ -174,3 +206,107 @@ This project is licensed under [GPLv3](https://www.gnu.org/licenses/gpl-3.0.html
 ## Acknowledgments
 
 This project is being developed by a team of researchers and students lead by Thomas Cory at the [Service-centric Networking](https://www.tu.berlin/snet) chair at Technische Universität Berlin.
+
+### WebSocket Server
+
+The application can also be run as a WebSocket server to support web-based frontends. To start the WebSocket server:
+
+```bash
+python main.py --websocket
+```
+
+The server will start on `ws://localhost:8765` by default.
+
+#### WebSocket Protocol
+
+The WebSocket server implements the following message protocol:
+
+1. **State Updates** (Server → Client):
+   ```json
+   {
+     "type": "state_update",
+     "state": {
+       "status": "idle|running|completed|error",
+       "current_step": "string",
+       "progress": 0.0-1.0,
+       "message": "string",
+       "error": "string|null"
+     }
+   }
+   ```
+
+2. **Start Pipeline** (Client → Server):
+   ```json
+   {
+     "type": "start_pipeline",
+     "config": {
+       "run_id": "string",
+       "id_file": "string|null",
+       "pkg": "string|null",
+       "default_model": "string|null",
+       "models": {
+         "detect": "string|null",
+         "annotate": "string|null",
+         "review": "string|null"
+       },
+       "skip_clean": boolean,
+       "skip_detect": boolean,
+       "skip_parse": boolean,
+       "skip_annotate": boolean,
+       "skip_review": boolean,
+       "batch_detect": boolean,
+       "batch_annotate": boolean,
+       "batch_review": boolean,
+       "parallel_prompt": boolean,
+       "use_custom_model": boolean,
+       "hostname": "string|null"
+     }
+   }
+   ```
+
+3. **Stop Pipeline** (Client → Server):
+   ```json
+   {
+     "type": "stop_pipeline"
+   }
+   ```
+
+#### Example WebSocket Client
+
+Here's a simple example of how to connect to the WebSocket server using JavaScript:
+
+```javascript
+const ws = new WebSocket('ws://localhost:8765');
+
+ws.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+    if (data.type === 'state_update') {
+        console.log('Pipeline status:', data.state.status);
+        console.log('Current step:', data.state.current_step);
+        console.log('Progress:', data.state.progress);
+        console.log('Message:', data.state.message);
+        if (data.state.error) {
+            console.error('Error:', data.state.error);
+        }
+    }
+};
+
+// Start the pipeline
+ws.onopen = () => {
+    ws.send(JSON.stringify({
+        type: 'start_pipeline',
+        config: {
+            run_id: '12345',
+            pkg: 'com.example.app',
+            default_model: 'gpt-4'
+        }
+    }));
+};
+
+// Stop the pipeline
+function stopPipeline() {
+    ws.send(JSON.stringify({
+        type: 'stop_pipeline'
+    }));
+}
+```

@@ -1,0 +1,19 @@
+{
+    "annotations": [
+        {
+            "requirement": "Data Recipients",
+            "value": "our partners",
+            "performed": true
+        },
+        {
+            "requirement": "Third-country Transfers",
+            "value": "in and outside of EU/EEA member states",
+            "performed": true
+        },
+        {
+            "requirement": "Third-country Transfers",
+            "value": "in and outside of PLACEHOLDER the United States",
+            "performed": true
+        }
+    ]
+}
