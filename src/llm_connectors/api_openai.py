@@ -1,12 +1,10 @@
 import json
 import os
 import sys
-import time
 import timeit
-from typing import Literal, Union, Tuple, List, Optional
 from datetime import datetime
+from typing import Literal, Union, Tuple, List, Optional
 
-import tiktoken
 from openai import OpenAI
 from pydantic import BaseModel
 
@@ -78,25 +76,31 @@ def _parse_response_format(response_format, json_schema: dict, task: str) -> dic
 
 
 class ApiOpenAI(ApiBase):
-    def __init__(self, run_id: str, default_model: str = None):
-        super().__init__(run_id, models, default_model, None, True, False)
-        self.active_model = None
+    """
+    API connector for OpenAI's GPT models.
+    """
 
-        api_key = os.getenv('OPENAI_API_KEY')
-        if api_key is None:
-            print("Please set the OPENAI_API_KEY environment variable.")
-            sys.exit(1)
-
-        self.client = OpenAI(
-            api_key=api_key
+    def __init__(self, run_id: str, hostname: str = None, default_model: str = None):
+        super().__init__(
+            run_id=run_id,
+            models=models,
+            api=api,
+            api_key_name='OPENAI_API_KEY',
+            default_model=default_model,
+            hostname=hostname,
+            supports_batch=True
         )
 
-    def setup(self, task: str, model: dict, use_custom_model: bool = False):
-        super().setup(task, model, use_custom_model)
+        self.client = OpenAI(
+            api_key=self.api_key
+        )
 
     def close(self):
         print("Closed OpenAI API client.")
         self.client.close()
+
+    def setup_task(self, task: str, model: str):
+        super().setup_task(task, model)
 
     def prompt(
             self,
@@ -105,7 +109,7 @@ class ApiOpenAI(ApiBase):
             user_msg: str,
             system_msg: str = None,
             examples: list[tuple[str, str]] = [],
-            model: dict = None,
+            model: str = None,
             response_format: Literal['text', 'json', 'json_schema'] = 'text',
             json_schema: dict = None,
             temperature: float = 1.0,
@@ -120,17 +124,18 @@ class ApiOpenAI(ApiBase):
             timeout: float = None
     ) -> Tuple[str, float, float]:
 
-        if self.active_model is None:
-            self.setup(task, model, False)
+        # start the timer to measure the processing time
+        start_time = timeit.default_timer()
+
+        self.setup_task(task, model)
 
         # load the messages from the prompts folder or use the provided messages
-        messages, system_msg, response_schema, system_len, user_len, example_len  = util.prepare_prompt_messages(api, task, user_msg, system_msg, examples)
+        messages, system_msg, response_schema = util.prepare_prompt_messages(
+            api, task, user_msg, system_msg, examples
+        )
 
         # parse the given response format into the correct format for the API call
         parsed_response_format = _parse_response_format(response_format, response_schema, task)
-
-        # start the timer to measure the processing time
-        start_time = timeit.default_timer()
 
         # configure and query GPT
         completion = self.client.chat.completions.create(
@@ -149,20 +154,27 @@ class ApiOpenAI(ApiBase):
 
         output = completion.choices[0].message.content
 
-        # extract the output text from the response message
-        output_len = len(tiktoken.get_encoding(model['encoding']).encode(output))
-
         # stop the timer and calculate the processing time
-        end_time = timeit.default_timer()
-        processing_time = end_time - start_time
+        processing_time = timeit.default_timer() - start_time
+
+        input_len = completion.usage.prompt_tokens
+        output_len = completion.usage.completion_tokens
 
         # calculate the cost of the API call based on the total number of tokens used
-        cost = (system_len + user_len + example_len) * self.active_model['input_price'] + output_len * self.active_model['output_price']
+        cost = input_len * self.active_model['input_price'] + output_len * self.active_model['output_price']
 
         # log the prompt and result
-        output_format = 'txt' if response_format == 'text' else 'json'
         if self.run_id is not None and pkg is not None and task is not None:
-            util.log_prompt_result(self.run_id, task, pkg, self.active_model['name'], output_format, cost, processing_time, [output])
+            util.log_prompt_result(
+                run_id=self.run_id,
+                task=task,
+                pkg=pkg,
+                model_name=self.active_model['name'],
+                output_format='txt' if response_format == 'text' else 'json',
+                cost=cost,
+                processing_time=processing_time,
+                outputs=[output]
+            )
 
         return output, cost, processing_time
 
@@ -216,7 +228,7 @@ class ApiOpenAI(ApiBase):
                 raise ValueError("model must be provided when default_model is not set")
             model = self.default_model
 
-        messages, system_msg, response_schema, system_len, user_len, example_len  = util.prepare_prompt_messages(api, task, user_msg, system_msg, examples)
+        messages, system_msg, response_schema = util.prepare_prompt_messages(api, task, user_msg, system_msg, examples)
         parsed_response_format = _parse_response_format(response_format, response_schema, task)
 
         return {
@@ -273,7 +285,7 @@ class ApiOpenAI(ApiBase):
 
     def retrieve_batch_result_entry(self, task: str, entry_id: str, batch_results_file: str = "batch_results.jsonl"):
         # iterate through all lines of the batch-results.jsonl file and return the one with the matching custom_id
-        #print(f"Retrieving entry {entry_id} from batch results...")
+        # print(f"Retrieving entry {entry_id} from batch results...")
         with open(f"../output/{self.run_id}/batch/{task}/{batch_results_file}", "r") as f:
             for line in f:
                 try:
@@ -327,7 +339,7 @@ class ApiOpenAI(ApiBase):
         # Convert OpenAI batch status to unified format
         status_mapping = {
             "validating": "in_progress",
-            "in_progress": "in_progress", 
+            "in_progress": "in_progress",
             "finalizing": "in_progress",
             "completed": "completed",
             "failed": "failed",
@@ -370,3 +382,11 @@ class ApiOpenAI(ApiBase):
             return batch_results
         else:
             return None
+
+    def _load_model(self):
+        # This method is intentionally left empty as OpenAI models are not loaded in the same way as other APIs.
+        pass
+
+    def _unload_model(self):
+        # This method is intentionally left empty as OpenAI models are not unloaded in the same way as other APIs.
+        pass

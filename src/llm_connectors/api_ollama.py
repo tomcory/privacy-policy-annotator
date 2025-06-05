@@ -1,5 +1,5 @@
 import asyncio
-from concurrent.futures import ThreadPoolExecutor, as_completed
+import timeit
 from typing import Literal, List, Tuple, Optional
 
 import ollama
@@ -102,65 +102,54 @@ models = {
         'input_price_batch': 0,
         'output_price_batch': 0
     },
+    'gemma3:4b': {
+        'name': 'gemma3:4b',
+        'api': 'ollama',
+        'encoding': 'o200k_base',
+        'input_price': 0,
+        'output_price': 0,
+        'input_price_batch': 0,
+        'output_price_batch': 0
+    },
 }
 
 
 class ApiOllama(ApiBase):
+    """
+    Ollama API connector for interacting with LLMs hosted on Ollama.
+    """
+
     def __init__(self, run_id: str, hostname: str = None, default_model: str = None):
-        super().__init__(run_id, models, default_model, None, hostname, True, False)
+        super().__init__(
+            run_id=run_id,
+            models=models,
+            api=api,
+            api_key_name='OLLAMA_API_KEY',
+            default_model=default_model,
+            hostname=hostname,
+            supports_batch=True
+        )
+
+        # Configure headers with Bearer token if API key is available
+        headers = {}
+        if self.api_key:
+            headers['Authorization'] = f'Bearer {self.api_key}'
 
         if hostname is not None:
-            self.client = ollama.Client(hostname)
-            self.async_client = AsyncClient(hostname)
+            self.client = ollama.Client(host=hostname, headers=headers)
+            self.async_client = AsyncClient(host=hostname, headers=headers)
         else:
-            self.client = ollama.Client()
-            self.async_client = AsyncClient()
+            self.client = ollama.Client(headers=headers)
+            self.async_client = AsyncClient(headers=headers)
 
         self.downloaded_models = [model['model'] for model in self.client.list()['models']]
-
-    def setup(self, task: str, model: dict, use_custom_model: bool = False):
-        print(f'Setting up Ollama API client for task {task} and model {model["name"]}...')
-        self.task = task
-
-        if use_custom_model:
-            model_name = f'{model["name"]}-{task}'
-            self.use_custom_model = True
-            print(f'Using custom model {model_name}.')
-        else:
-            model_name = model['name']
-
-        if self.active_model['name'] is not model_name:
-            print(f'{model_name} is not the loaded model.')
-
-            # unload the current model to free up resources before loading the new model
-            # self._unload_model()
-
-            # check whether the default model is downloaded and download it if necessary
-            self.downloaded_models = [model['model'] for model in self.client.list()['models']]
-            if model_name not in self.downloaded_models:
-                if use_custom_model:
-                    print(f'Custom model {model_name} does not exist. Creating...')
-                    self._create_model(task, model, model_name)
-                else:
-                    print(f'Model {model_name} is not downloaded. Downloading...')
-                    self._pull_model(model['name'])
-
-            print(f'Initialising model {model_name}...')
-
-            # initialize the model by prompting it with a message
-            try:
-                response = self.client.chat(model_name, messages=[{ 'role': 'user', 'content': 'What model are you?' }])
-                print(f'> {response["message"]["content"]}')
-                self.active_model = self.models[model_name]
-                print(f'Loaded model {model_name}.')
-            except ollama.ResponseError as e:
-                print(f'Failed to load model {model_name}.')
-                print(e)
-                self.active_model = None
 
     def close(self):
         self._unload_model()
         print(f'Closed Ollama API client.')
+
+    def setup_task(self, task: str, model: str):
+        super().setup_task(task, model)
 
     def prompt(
             self,
@@ -169,7 +158,7 @@ class ApiOllama(ApiBase):
             user_msg: str,
             system_msg: str = None,
             examples: list[tuple[str, str]] = [],
-            model: dict = None,
+            model: str = None,
             response_format: Literal['text', 'json', 'json_schema'] = 'text',
             json_schema: dict = None,
             temperature: float = 1.0,
@@ -183,41 +172,29 @@ class ApiOllama(ApiBase):
             context_window: int = None,
             timeout: float = None
     ) -> Tuple[str, float, float]:
-        if model is None:
-            if self.default_model is None:
-                raise ValueError("model must be provided when default_model is not set")
-            model = self.default_model
 
-        # load the messages from the prompts folder or use the provided messages
-        # print("Loading messages from prompts folder...")
-        messages, system_msg, response_schema, _, _, _ = util.prepare_prompt_messages(
+        start_time = timeit.default_timer()
+        self.setup_task(task, model)
+
+        messages, system_msg, response_schema = util.prepare_prompt_messages(
             api=api,
             task=task,
             user_msg=user_msg,
             system_msg=system_msg,
-            examples=examples,
-            schema_only=self.use_custom_model
+            examples=examples
         )
 
-        try:
-            if self.use_custom_model:
-                response = self.client.chat(
-                    model=model['name'],
-                    messages=[{'role': 'user', 'content': user_msg}],
-                    format=response_schema
-                )
-            else:
-                response = self.client.chat(
-                    model=model['name'],
-                    messages=messages,
-                    format=response_schema
-                )
-            return response['message']['content'], 0, 0
-        except ollama.ResponseError as e:
-            print(f'Failed to chat with model {model["name"]}.')
-            print(e)
-            return None, 0, 0
+        response = self.client.chat(
+            model=self.active_model['name'],
+            messages=messages,
+            format=response_schema
+        )
 
+        output = response.message.content
+        input_len = response.prompt_eval_count
+        output_len = response.eval_count
+
+        return self._log_response(start_time, output, input_len, output_len, pkg, task, response_format)
 
     def prompt_parallel(
             self,
@@ -226,7 +203,7 @@ class ApiOllama(ApiBase):
             user_msgs: list[str],
             system_msg: str = None,
             examples: list[tuple[str, str]] = None,
-            model: dict = None,
+            model: str = None,
             response_format: Literal['text', 'json', 'json_schema'] = 'text',
             json_schema: dict = None,
             temperature: float = 1.0,
@@ -240,19 +217,17 @@ class ApiOllama(ApiBase):
             context_window: int = None,
             timeout: float = None
     ) -> Tuple[List[str], float, float]:
-        if model is None:
-            if self.default_model is None:
-                raise ValueError("model must be provided when default_model is not set")
-            model = self.default_model
+
+        start_time = timeit.default_timer()
+        self.setup_task(task, model)
 
         # load the messages from the prompts folder or use the provided messages
         # print("Loading messages from prompts folder...")
-        examples, system_msg, response_schema, _, _, _ = util.prepare_prompt_messages(
+        examples, system_msg, response_schema = util.prepare_prompt_messages(
             api=api,
             task=task,
             system_msg=system_msg,
-            examples=examples,
-            schema_only=self.use_custom_model
+            examples=examples
         )
         print(f'Processing {len(user_msgs)} prompts in parallel...')
 
@@ -266,14 +241,9 @@ class ApiOllama(ApiBase):
         # get the number of workers to use
         max_workers = min(len(user_msgs), 16)
 
-        if self.use_custom_model:
-            print(f'Using custom model {model["name"]}.')
-            message_lists = [[{ 'role': 'user', 'content': user_msg }] for user_msg in user_msgs]
-        else:
-            print(f'Using model {model["name"]}.')
-            message_lists = [examples] * len(user_msgs)
-            for i, user_msg in enumerate(user_msgs):
-                message_lists[i].append({ 'role': 'user', 'content': user_msg })
+        message_lists = [examples] * len(user_msgs)
+        for i, user_msg in enumerate(user_msgs):
+            message_lists[i].append({'role': 'user', 'content': user_msg})
 
         print(f'Processing {len(message_lists)} message lists in parallel...')
 
@@ -281,11 +251,13 @@ class ApiOllama(ApiBase):
             self._prompt_parallel_async(
                 message_lists,
                 response_schema,
-                model
+                self.active_model['name']
             )
         )
 
-        return responses, total_cost, total_time
+        processing_time = timeit.default_timer() - start_time
+
+        return responses, total_cost, processing_time
 
     def prepare_batch_entry(
             self,
@@ -323,6 +295,32 @@ class ApiOllama(ApiBase):
     def get_batch_results(self, task: str, batch_metadata_file: str = "batch_metadata.json"):
         raise NotImplementedError("Batch processing is not supported by Ollama")
 
+    def _load_model(self):
+
+        # download the model if necessary
+        self.downloaded_models = [model['model'] for model in self.client.list()['models']]
+        if self.active_model['name'] not in self.downloaded_models:
+            print(f'Model downloading model {self.active_model['name']}...')
+            self._pull_model(self.active_model['name'])
+
+        print(f'Initialising model {self.active_model['name']}...')
+
+        # initialize the model by prompting it with a message
+        self.client.chat(self.active_model['name'], messages=[{'role': 'user', 'content': 'What model are you?'}])
+
+        print(f'Loaded model {self.active_model['name']}.')
+
+    def _unload_model(self):
+        if self.active_model is not None:
+            print(f'Unloading model {self.active_model['name']}...')
+            try:
+                self.client.chat(self.active_model['name'], [{'role': 'user', 'content': ' '}], keep_alive=0)
+                print(f'Unloaded model {self.active_model['name']}.')
+            except ollama.ResponseError as e:
+                print(f'Failed to unload model {self.active_model['name']}.')
+                print(e)
+            self.active_model = None
+
     def _pull_model(self, model_name: str):
         current_digest, bars = '', {}
         for progress in self.client.pull(model_name, stream=True):
@@ -341,36 +339,6 @@ class ApiOllama(ApiBase):
                 bars[digest].update(completed - bars[digest].n)
 
             current_digest = digest
-
-    def _create_model(self, task: str, model: dict, created_model_name: str):
-        examples, system_msg, response_schema, _, _, _ = util.prepare_prompt_messages(
-            "ollama",
-            task,
-            bundle_system_msg=False,
-            schema_only=False
-        )
-
-        print(f'Creating custom model {created_model_name} from model {model["name"]}...')
-
-        self.client.create(
-            model=f"{created_model_name}",
-            from_=model['name'],
-            system=system_msg,
-            messages=examples
-        )
-
-        print(f'Done.')
-
-    def _unload_model(self):
-        if self.active_model is not None:
-            print(f'Unloading model {self.active_model['name']}...')
-            try:
-                self.client.chat(self.active_model['name'], [{ 'role': 'user', 'content': ' ' }], keep_alive=0)
-                print(f'Unloaded model {self.active_model['name']}.')
-            except ollama.ResponseError as e:
-                print(f'Failed to unload model {self.active_model['name']}.')
-                print(e)
-            self.active_model = None
 
     async def _worker(
             self,

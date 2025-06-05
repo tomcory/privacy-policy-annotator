@@ -1,9 +1,6 @@
-import os
-import sys
 import timeit
 from typing import Literal, List, Tuple, Optional
 
-import tiktoken
 from openai import OpenAI
 
 from src import util
@@ -49,26 +46,28 @@ def _parse_response_format(response_format, json_schema: dict, task: str, suppor
 
 
 class ApiDeepSeek(ApiBase):
-    def __init__(self, run_id: str, default_model: str = None):
-        super().__init__(run_id, models, default_model, None, True, False)
-        self.active_model = None
-
-        api_key = os.getenv('DEEPSEEK_API_KEY')
-        if api_key is None:
-            print("Please set the DEEPSEEK_API_KEY environment variable.")
-            sys.exit(1)
-
-        self.client = OpenAI(
-            api_key=os.getenv('DEEPSEEK_API_KEY'),
-            base_url="https://api.deepseek.com"
+    def __init__(self, run_id: str, hostname: str = "https://api.deepseek.com", default_model: str = None):
+        super().__init__(
+            run_id=run_id,
+            models=models,
+            api=api,
+            api_key_name='DEEPSEEK_API_KEY',
+            default_model=default_model,
+            hostname=hostname,
+            supports_batch=True
         )
 
-    def setup(self, task: str, model: dict, use_custom_model: bool = False):
-        super().setup(task, model, use_custom_model)
+        self.client = OpenAI(
+            api_key=self.api_key,
+            base_url=self.hostname
+        )
 
     def close(self):
         print("Closed OpenAI API client.")
         self.client.close()
+
+    def setup_task(self, task: str, model: str):
+        super().setup_task(task, model)
 
     def prompt(
             self,
@@ -77,7 +76,7 @@ class ApiDeepSeek(ApiBase):
             user_msg: str,
             system_msg: str = None,
             examples: list[tuple[str, str]] = [],
-            model: dict = None,
+            model: str = None,
             response_format: Literal['text', 'json', 'json_schema'] = 'text',
             json_schema: dict = None,
             temperature: float = 1.0,
@@ -92,17 +91,20 @@ class ApiDeepSeek(ApiBase):
             timeout: float = None
     ) -> Tuple[str, float, float]:
 
-        if self.active_model is None:
-            self.setup(task, model, False)
+        start_time = timeit.default_timer()
+        self.setup_task(task, model)
 
-        # load the messages from the prompts folder or use the provided messages
-        messages, system_msg, response_schema, system_len, user_len, example_len  = util.prepare_prompt_messages(api, task, user_msg, system_msg, examples)
+        messages, system_msg, response_schema = util.prepare_prompt_messages(
+            api=api,
+            task=task,
+            user_msg=user_msg,
+            system_msg=system_msg,
+            examples=examples
+        )
 
         # parse the given response format into the correct format for the API call
-        parsed_response_format = _parse_response_format(response_format, response_schema, task, self.active_model['supports_json'])
-
-        # start the timer to measure the processing time
-        start_time = timeit.default_timer()
+        parsed_response_format = _parse_response_format(response_format, response_schema, task,
+                                                        self.active_model['supports_json'])
 
         # configure and query GPT
         completion = self.client.chat.completions.create(
@@ -125,27 +127,12 @@ class ApiDeepSeek(ApiBase):
             reasoning = None
         output = completion.choices[0].message.content
 
-        print(f"Reasoning:\n{reasoning}\n")
-        print("x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x")
-        print(f"Output:\n{output}")
+        # TODO: Handle reasoning content if needed
 
-        # extract the output text from the response message
-        output_len = len(tiktoken.get_encoding(model['encoding']).encode(output))
+        input_len = completion.usage.prompt_tokens
+        output_len = completion.usage.completion_tokens
 
-        # stop the timer and calculate the processing time
-        end_time = timeit.default_timer()
-        processing_time = end_time - start_time
-
-        # calculate the cost of the API call based on the total number of tokens used
-        cost = (system_len + user_len + example_len) * self.active_model['input_price'] + output_len * self.active_model['output_price']
-
-        # log the prompt and result
-        output_format = 'txt' if response_format == 'text' else 'json'
-        if self.run_id is not None and pkg is not None and task is not None:
-            print(f"Logging prompt and result for {pkg}...")
-            util.log_prompt_result(self.run_id, task, pkg, self.active_model['name'], output_format, cost, processing_time, [output])
-
-        return output, cost, processing_time
+        return self._log_response(start_time, output, input_len, output_len, pkg, task, response_format)
 
     def prompt_parallel(
             self,
@@ -154,7 +141,7 @@ class ApiDeepSeek(ApiBase):
             user_msgs: list[str],
             system_msg: str = None,
             examples: list[tuple[str, str]] = [],
-            model: dict = None,
+            model: str = None,
             response_format: Literal['text', 'json', 'json_schema'] = 'text',
             json_schema: dict = None,
             temperature: float = 1.0,
@@ -178,7 +165,7 @@ class ApiDeepSeek(ApiBase):
             system_msg: str = None,
             examples: list[tuple[str, str]] = [],
             entry_id: int = 0,
-            model: dict = None,
+            model: str = None,
             response_format: Literal['text', 'json', 'json_schema'] = 'text',
             json_schema: dict = None,
             temperature: float = 1.0,
@@ -205,3 +192,11 @@ class ApiDeepSeek(ApiBase):
 
     def get_batch_results(self, task: str, batch_metadata_file: str = "batch_metadata.json"):
         raise NotImplementedError("Batch processing is not supported by the DeepSeek API")
+
+    def _load_model(self):
+        # This method is intentionally left empty as DeepSeek models are not loaded in the same way as other APIs.
+        pass
+
+    def _unload_model(self):
+        # This method is intentionally left empty as DeepSeek models are not unloaded in the same way as other APIs.
+        pass

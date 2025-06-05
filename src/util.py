@@ -108,24 +108,39 @@ def prepare_prompt_messages(
         system_msg: str = None,
         examples: list[tuple[str, str]] = None,
         response_schema: dict = None,
-        bundle_system_msg: bool = True,
-        schema_only: bool = False
+        bundle_system_msg: bool = True
 ) -> (list[dict], str, dict, int, int, int):
+    """
+    Prepare the prompt messages for the API call.
+    Args:
+        api (str): The API to use (e.g., 'anthropic', 'openai').
+        task (str): The task for which the prompt is prepared.
+        user_msg (str): The user message to include in the prompt.
+        system_msg (str): The system message to include in the prompt.
+        examples (list[tuple[str, str]]): A list of example pairs (user message, assistant message).
+        response_schema (dict): The response schema to use for the prompt.
+        bundle_system_msg (bool): Whether to bundle the system message with the examples.
+    Returns:
+        tuple: A tuple containing:
+            - messages (list[dict]): The prepared messages for the API call.
+            - system_msg (str): The system message used in the prompt.
+            - response_schema (dict): The response schema used in the prompt.
+            - system_len (int): The length of the system message.
+            - user_len (int): The length of the user message.
+            - example_len (int): The total length of all example messages.
+    """
+    if system_msg is None or examples is None or response_schema is None:
+        sys_msg, exs, res_schema = _load_prompts_from_files(task, api)
 
-    sys_msg, exs, res_schema = _load_prompts_from_files(task, api, schema_only)
-
-    if system_msg is None:
-        system_msg = sys_msg
-    if examples is None:
-        examples = exs
-    if response_schema is None:
-        response_schema = res_schema
-
-    if schema_only:
-        return None, None, response_schema, 0, 0, 0
-
-    if bundle_system_msg and system_msg is None:
-        raise ValueError("system_msg must be provided, either as an argument or in the prompts folder")
+        if system_msg is None:
+            if sys_msg is None:
+                raise ValueError(f"No system prompt specified for task '{task}' and API '{api}'.")
+            else:
+                system_msg = sys_msg
+        if examples is None:
+            examples = exs
+        if response_schema is None:
+            response_schema = res_schema
 
     # map the examples to the correct json format
     es = [(
@@ -135,25 +150,19 @@ def prepare_prompt_messages(
 
     examples = es
 
-    # sum the length of the example contents
-    example_len = sum(len(e[0]['content']) + len(e[1]['content']) for e in examples)
-
     # generate the messages list for the API call
-    messages = [{"role": "system", "content": system_msg}] # .replace('\n', '')}]
+    messages = []
+    if bundle_system_msg:
+        messages.append({"role": "system", "content": system_msg})
     for example in examples:
         messages.extend(example)
-
     if user_msg is not None:
-        messages.append({"role": "user", "content": user_msg}) # .replace('\n', '')})
+        messages.append({"role": "user", "content": user_msg})
 
-    # calculate the length of the input messages
-    system_len = len(messages[0]['content'])
-    user_len = len(messages[-1]['content'])
-
-    return messages, system_msg, response_schema, system_len, user_len, example_len
+    return messages, system_msg, response_schema
 
 
-def _load_prompts_from_files(task: str, api: str, schema_only = False) -> (str, list[tuple[str, str]], dict):
+def _load_prompts_from_files(task: str, api: str) -> (str, list[tuple[str, str]], dict):
     try:
         dir_path = os.path.dirname(os.path.realpath(__file__))
         prompts_folder = f"{dir_path}/../prompts/{api}/{task}"
@@ -170,8 +179,6 @@ def _load_prompts_from_files(task: str, api: str, schema_only = False) -> (str, 
                 response_schema = read_from_file(f"{prompts_folder}/{file_name}")
                 # minify the json schema
                 response_schema = json.loads(response_schema)
-                if schema_only:
-                    return None, None, response_schema
             elif file_name.startswith("system."):
                 # print(f"Loading system prompt from {file_name}")
                 system_prompt = read_from_file(f"{prompts_folder}/{file_name}")
@@ -197,7 +204,7 @@ def _load_prompts_from_files(task: str, api: str, schema_only = False) -> (str, 
                         msg = json.dumps(json.loads(msg))
                     examples[str(index)] = (examples[str(index)][0], msg)
                 else:
-                    print(f"Error: unknown example type: {file_type}, each example must have a user and an assistant message", file=sys.stderr)
+                    raise ValueError(f"Unknown file type in example: {file_type}. Expected 'user' or 'assistant'.")
 
         # parse examples to a list of tuples
         examples = [(user, assistant) for user, assistant in examples.values()]
