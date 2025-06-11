@@ -203,11 +203,11 @@ def prepare_pipeline(
     else:
         spawn_event_loop = False
 
-    state_manager.update_state(
-        status=PipelineStatus.INITIALIZING,
-        current_step="Initializing",
-        message="Starting pipeline..."
-    )
+        state_manager.update_state(
+            status=PipelineStatus.INITIALIZING,
+            current_step="Initializing",
+            message="Starting pipeline..."
+        )
 
     # Create the executor
     executor = PipelineExecutor(

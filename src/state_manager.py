@@ -1,6 +1,7 @@
 import asyncio
 import json
 import sys
+import time
 from dataclasses import dataclass
 from enum import Enum
 from tqdm import tqdm
@@ -37,6 +38,7 @@ class BaseStateManager:
     def __init__(self):
         self.state = PipelineState()
         self.previous_state = self.state
+        self.last_update = time.time()
 
     async def raise_error(self, error_message: str, abort=False):
         """Raise an error and update the pipeline state."""
@@ -45,7 +47,6 @@ class BaseStateManager:
             await self._abort()
         else:
             await self.update_state(status=PipelineStatus.ERROR, error=error_message)
-
 
     async def raise_warning(self, warning_message: str):
         """Raise a warning and update the pipeline state."""
@@ -65,7 +66,7 @@ class BaseStateManager:
             warning: str = "",
             error: str = ""
     ):
-        """Update the pipeline state and broadcast the changes."""
+        """Internal coroutine to asynchronously update the pipeline state, called by self.update_state."""
         if status is None:
             status = self.state.status
         if current_step is None:
@@ -83,8 +84,11 @@ class BaseStateManager:
         if step_details is None:
             step_details = self.state.step_details
 
+        time_since_last_update = time.time() - self.last_update
+
         # check whether the state has any changes
-        if status == self.state.status and \
+        if time_since_last_update < 1 and \
+                status == self.state.status and \
                 current_step == self.state.current_step and \
                 progress == self.state.progress and \
                 step_progress == self.state.step_progress and \
@@ -97,6 +101,7 @@ class BaseStateManager:
                 error == self.state.error:
             return
 
+        self.last_update = time.time()
         self.previous_state = self.state
         self.state = PipelineState(
             status=status,
@@ -108,6 +113,7 @@ class BaseStateManager:
             total_files=total_files,
             step_details=step_details,
             message=message,
+            warning=warning,
             error=error
         )
         await self.broadcast_state()
@@ -197,59 +203,87 @@ class ConsoleStateManager(BaseStateManager):
 
     async def broadcast_state(self):
         """Display the current state in the console with appropriate formatting."""
+
+        # Update or create progress bar for running steps with multiple files
+        if (self.state.status == PipelineStatus.RUNNING and
+                self.state.total_files >= 1):
+
+            if self.pbar is None or self.pbar.total != self.state.total_files:
+                # Close existing bar if total files changed
+                if self.pbar is not None:
+                    self.pbar.close()
+
+                # Create new progress bar
+                self.pbar = tqdm(
+                    total=self.state.total_files,
+                    desc=f"{self.state.current_step}: {self.state.current_file} ({self.state.file_progress:.2%})",
+                    unit="file",
+                    ncols=160,
+                    bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]'
+                )
+
+            # Update progress bar position
+            current_position = int(self.state.step_progress * self.state.total_files)
+            self.pbar.n = current_position
+            if self.state.current_file:
+                self.pbar.set_description(
+                    f"{self.state.current_step}: {self.state.current_file} ({self.state.file_progress:.2%})")
+            self.pbar.refresh()
         
         # Handle status changes
         if self.state.status != self.previous_state.status:
             if self.state.status == PipelineStatus.ERROR:
-                print(f"\nError: {self.state.error}")
                 if self.pbar is not None:
                     self.pbar.close()
                     self.pbar = None
+                print(f"\nError: {self.state.error}")
+                return
+            elif self.state.status == PipelineStatus.ABORTED:
+                if self.pbar is not None:
+                    self.pbar.close()
+                    self.pbar = None
+                print(f"\nPipeline aborted: {self.state.error}")
+                return
             elif self.state.status == PipelineStatus.COMPLETED:
                 if self.pbar is not None:
                     self.pbar.close()
                     self.pbar = None
                 print("\nPipeline completed successfully")
+                return
             elif self.state.status == PipelineStatus.INITIALIZING:
                 print(f"\nInitializing pipeline...")
             elif self.state.status == PipelineStatus.RUNNING:
                 print(f"\nPipeline started")
+            elif self.state.status == PipelineStatus.INTERRUPTED:
+                if self.pbar is not None:
+                    self.pbar.close()
+                    self.pbar = None
+                print(f"\nPipeline interrupted")
+                return
 
         # Handle step changes
-        if self.state.current_step != self.last_step:
+        if self.state.current_step != self.last_step and self.state.current_step:
             self.last_step = self.state.current_step
+            # Close existing progress bar when step changes
             if self.pbar is not None:
                 self.pbar.close()
                 self.pbar = None
+            
             if self.state.step_details:
                 print(f"\n{self.state.step_details}")
 
-        # Handle file changes
-        if self.state.current_file != self.last_file:
-            self.last_file = self.state.current_file
-            if self.pbar is not None:
-                self.pbar.close()
-                self.pbar = None
-            if self.state.current_file:
-                print(f"\nProcessing file: {self.state.current_file}")
-
-        # Update progress bar
-        if self.state.status == PipelineStatus.RUNNING:
-            if self.state.total_files > 0:
-                if self.pbar is None:
-                    self.pbar = tqdm(
-                        total=self.state.total_files,
-                        desc=f"Step: {self.state.current_step}",
-                        unit="file"
-                    )
-                self.pbar.n = int(self.state.step_progress * self.state.total_files)
-                self.pbar.refresh()
-
-        # Display warnings and messages
-        if self.state.warning:
+        # Display warnings
+        if self.state.warning and self.state.warning != self.previous_state.warning:
             print(f"\nWarning: {self.state.warning}")
-        if self.state.message:
-            print(f"\n{self.state.message}")
+        
+        # Display messages
+        if self.state.message and self.state.message != self.previous_state.message:
+            # For batch operations, show message without newline to avoid cluttering
+            if "batch" in self.state.message.lower() or "waiting" in self.state.message.lower():
+                if self.pbar is None:
+                    print(f"{self.state.message}")
+            else:
+                print(f"\n{self.state.message}")
 
     async def _abort(self):
         """Abort the pipeline and close the progress bar."""

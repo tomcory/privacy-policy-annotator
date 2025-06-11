@@ -5,30 +5,78 @@ import sys
 
 import chardet
 
+def _detect_encoding(file_path: str) -> str:
+    """
+    Detects the encoding of a file.
+    Args:
+        file_path (str): The path to the file.
+    Returns:
+        str: The detected encoding of the file.
+    """
+    with open(file_path, 'rb') as file:
+        raw_data = file.read()
+        result = chardet.detect(raw_data)
+        return result['encoding']
 
 def write_to_file(file_name: str, text: str):
+    """
+    Writes text to a file, creating the file if it does not exist.
+    Args:
+        file_name (str): The name of the file to write to.
+        text (str): The text to write to the file.
+    """
     with open(file_name, 'w', encoding='utf-8') as file:
         file.write(text)
 
 
 def append_to_file(file_name: str, text: str):
-    with open(file_name, 'a', encoding='utf-8') as file:
+    """
+    Appends text to a file, creating the file if it does not exist.
+    Args:
+        file_name (str): The name of the file to append to.
+        text (str): The text to append to the file.
+    """
+    if os.path.exists(file_name):
+        encoding = _detect_encoding(file_name)
+    else:
+        encoding = 'utf-8'
+
+    with open(file_name, 'a', encoding=encoding) as file:
         file.write(text + '\n')
 
 
 def read_from_file(file_path: str):
-    # Detect the encoding of the file
-    with open(file_path, 'rb') as file:
-        raw_data = file.read()
-        result = chardet.detect(raw_data)
-        encoding = result['encoding']
+    """
+    Reads a file and returns its content as a string, detecting the encoding automatically.
+    Args:
+        file_path (str): The path to the file to read.
+    Returns:
+        str | None: The content of the file as a string or None if the file does not exist.
+    """
+    if not os.path.exists(file_path):
+        print(f"File '{file_path}' does not exist.")
+        return None
 
     # Read the file with the detected encoding
     content = ''
-    with open(file_path, 'r', encoding=encoding) as file:
+    with open(file_path, 'r', encoding=_detect_encoding(file_path)) as file:
         for line in file:
             content += line
         return content
+
+def read_json_file(file_path: str):
+    """
+    Reads a JSON file and returns its content.
+    Args:
+        file_path (str): The path to the JSON file.
+    Returns:
+        dict | None: The content of the JSON file as a dictionary or None if the file does not exist.
+    """
+    if not os.path.exists(file_path):
+        return None
+
+    with open(file_path, 'r', encoding=_detect_encoding(file_path)) as file:
+        return json.load(file)
 
 
 def prepare_output(run_id: str, output_folder: str = '../../output', overwrite: bool = False):
@@ -42,9 +90,9 @@ def prepare_output(run_id: str, output_folder: str = '../../output', overwrite: 
         f'{output_folder}/{run_id}/policies',
         f'{output_folder}/{run_id}/policies/html',
         f'{output_folder}/{run_id}/policies/cleaned',
-        f'{output_folder}/{run_id}/policies/accepted',
-        f'{output_folder}/{run_id}/policies/rejected',
-        f'{output_folder}/{run_id}/policies/unknown',
+        f'{output_folder}/{run_id}/policies/detected',
+        f'{output_folder}/{run_id}/policies/detected/rejected',
+        f'{output_folder}/{run_id}/policies/detected/unknown',
         f'{output_folder}/{run_id}/policies/json',
         f'{output_folder}/{run_id}/policies/annotated',
         f'{output_folder}/{run_id}/policies/reviewed',
@@ -213,4 +261,4 @@ def _load_prompts_from_files(task: str, api: str) -> (str, list[tuple[str, str]]
 
     except Exception as e:
         print(f"Error loading prompts: {e}", file=sys.stderr)
-        return None, []
+        return None, [], None
