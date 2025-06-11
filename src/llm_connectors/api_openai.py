@@ -1,9 +1,8 @@
 import json
-import os
 import sys
 import timeit
 from datetime import datetime
-from typing import Literal, Union, Tuple, List, Optional
+from typing import Literal
 
 from openai import OpenAI
 from pydantic import BaseModel
@@ -11,12 +10,10 @@ from pydantic import BaseModel
 from src import util
 from src.llm_connectors.api_base import ApiBase, BatchStatus
 
-api = 'openai'
-
-models = {
+available_models = {
     'gpt-3.5-turbo': {
         'name': 'gpt-3.5-turbo',
-        'api': api,
+        'api': 'openai',
         'encoding': 'cl100k_base',
         'input_price': (0.5 / 1000000),
         'output_price': (1.5 / 1000000),
@@ -25,7 +22,7 @@ models = {
     },
     'gpt-4': {
         'name': 'gpt-4',
-        'api': api,
+        'api': 'openai',
         'encoding': 'cl100k_base',
         'input_price': (30 / 1000000),
         'output_price': (60 / 1000000),
@@ -34,16 +31,16 @@ models = {
     },
     'gpt-4o': {
         'name': 'gpt-4o-2024-11-20',
-        'api': api,
+        'api': 'openai',
         'encoding': 'o200k_base',
         'input_price': (2.5 / 1000000),
         'output_price': (10 / 1000000),
         'input_price_batch': (1.25 / 1000000),
         'output_price_batch': (5 / 1000000)
     },
-    'gpt-4o-mini': {
+    'gpt-4o-mini-2024-07-18': {
         'name': 'gpt-4o-mini-2024-07-18',
-        'api': api,
+        'api': 'openai',
         'encoding': 'o200k_base',
         'input_price': (0.15 / 1000000),
         'output_price': (0.6 / 1000000),
@@ -53,54 +50,46 @@ models = {
 }
 
 
-def _parse_response_format(response_format, json_schema: dict, task: str) -> dict:
-    if response_format == 'text':
-        parsed_format = {'type': 'text'}
-    elif response_format == 'json':
-        parsed_format = {'type': 'json_object'}
-    elif response_format == 'json_schema':
-        if json_schema is None:
-            raise ValueError("json_schema must be provided when response_format is 'json_schema'")
-        parsed_format = {
-            'type': 'json_schema',
-            'json_schema': {
-                'name': f"response_schema_{task}",
-                'strict': True,
-                'schema': json_schema
-            }
-        }
-    else:
-        raise ValueError(f"response_format '{response_format}' not supported")
-
-    return parsed_format
-
-
 class ApiOpenAI(ApiBase):
     """
     API connector for OpenAI's GPT models.
     """
 
-    def __init__(self, run_id: str, hostname: str = None, default_model: str = None):
+    def __init__(
+            self,
+            run_id: str,
+            hostname: str = None,
+            default_model: str = None,
+            models: dict = None,
+            api: str = 'openai',
+            api_key_name: str = 'OPENAI_API_KEY',
+            supports_batch: bool = True
+    ):
+        if models is None:
+            models = available_models
+
         super().__init__(
             run_id=run_id,
             models=models,
             api=api,
-            api_key_name='OPENAI_API_KEY',
+            api_key_name=api_key_name,
             default_model=default_model,
             hostname=hostname,
-            supports_batch=True
+            supports_batch=supports_batch
         )
 
-        self.client = OpenAI(
-            api_key=self.api_key
-        )
+        if self.hostname:
+            self.client = OpenAI(
+                api_key=self.api_key
+            )
+        else:
+            self.client = OpenAI(
+                api_key=self.api_key,
+                base_url=self.hostname
+            )
 
     def close(self):
-        print("Closed OpenAI API client.")
         self.client.close()
-
-    def setup_task(self, task: str, model: str):
-        super().setup_task(task, model)
 
     def prompt(
             self,
@@ -108,7 +97,7 @@ class ApiOpenAI(ApiBase):
             task: str,
             user_msg: str,
             system_msg: str = None,
-            examples: list[tuple[str, str]] = [],
+            examples: list[tuple[str, str]] = None,
             model: str = None,
             response_format: Literal['text', 'json', 'json_schema'] = 'text',
             json_schema: dict = None,
@@ -122,25 +111,27 @@ class ApiOpenAI(ApiBase):
             seed: int = None,
             context_window: int = None,
             timeout: float = None
-    ) -> Tuple[str, float, float]:
+    ) -> tuple[str, float, float]:
 
-        # start the timer to measure the processing time
+        if examples is None:
+            examples = []
+
+        # start the timer and set up the client for the task
         start_time = timeit.default_timer()
-
         self.setup_task(task, model)
 
         # load the messages from the prompts folder or use the provided messages
         messages, system_msg, response_schema = util.prepare_prompt_messages(
-            api, task, user_msg, system_msg, examples
+            self.api, self.active_task, user_msg, system_msg, examples
         )
 
         # parse the given response format into the correct format for the API call
-        parsed_response_format = _parse_response_format(response_format, response_schema, task)
+        parsed_response_format = self._parse_response_format(response_format, response_schema)
 
-        # configure and query GPT
+        # configure and prompt the API
         completion = self.client.chat.completions.create(
             messages=messages,
-            model=self.active_model['name'],
+            model=self.active_model,
             response_format=parsed_response_format,
             temperature=temperature,
             max_completion_tokens=max_tokens,
@@ -152,31 +143,20 @@ class ApiOpenAI(ApiBase):
             timeout=timeout
         )
 
+        try:
+            reasoning = completion.choices[0].message.reasoning_content
+        except AttributeError:
+            reasoning = None
         output = completion.choices[0].message.content
 
-        # stop the timer and calculate the processing time
-        processing_time = timeit.default_timer() - start_time
+        # TODO: Handle reasoning content if needed
+
+        output = completion.choices[0].message.content
 
         input_len = completion.usage.prompt_tokens
         output_len = completion.usage.completion_tokens
 
-        # calculate the cost of the API call based on the total number of tokens used
-        cost = input_len * self.active_model['input_price'] + output_len * self.active_model['output_price']
-
-        # log the prompt and result
-        if self.run_id is not None and pkg is not None and task is not None:
-            util.log_prompt_result(
-                run_id=self.run_id,
-                task=task,
-                pkg=pkg,
-                model_name=self.active_model['name'],
-                output_format='txt' if response_format == 'text' else 'json',
-                cost=cost,
-                processing_time=processing_time,
-                outputs=[output]
-            )
-
-        return output, cost, processing_time
+        return self._log_response(start_time, output, input_len, output_len, pkg, task, response_format)
 
     def prompt_parallel(
             self,
@@ -184,7 +164,7 @@ class ApiOpenAI(ApiBase):
             task: str,
             user_msgs: list[str],
             system_msg: str = None,
-            examples: list[tuple[str, str]] = [],
+            examples: list[tuple[str, str]] = None,
             model: dict = None,
             response_format: Literal['text', 'json', 'json_schema'] = 'text',
             json_schema: dict = None,
@@ -198,143 +178,23 @@ class ApiOpenAI(ApiBase):
             seed: int = None,
             context_window: int = None,
             timeout: float = None
-    ) -> Tuple[List[str], float, float]:
-        raise NotImplementedError("Parallel requests are not supported by the OpenAI API")
+    ) -> tuple[list[str], float, float]:
+        raise NotImplementedError("Parallel requests are not supported")
 
-    def prepare_batch_entry(
+    def check_batch_status(
             self,
-            pkg: str,
             task: str,
-            user_msg: str,
-            system_msg: str = None,
-            examples: list[tuple[str, str]] = [],
-            entry_id: int = 0,
-            model: dict = None,
-            response_format: Union[Literal['text', 'json', 'json_schema'], BaseModel] = 'text',
-            json_schema: dict = None,
-            temperature: float = 1.0,
-            max_tokens: int = 2048,
-            n: int = 1,
-            top_p: int = 1,
-            top_k: int = None,
-            frequency_penalty: float = 0.0,
-            presence_penalty: float = 0.0,
-            seed: int = None,
-            context_window: int = None,
-            timeout: int = -1
-    ):
-        if model is None:
-            if self.default_model is None:
-                raise ValueError("model must be provided when default_model is not set")
-            model = self.default_model
-
-        messages, system_msg, response_schema = util.prepare_prompt_messages(api, task, user_msg, system_msg, examples)
-        parsed_response_format = _parse_response_format(response_format, response_schema, task)
-
-        return {
-            "custom_id": f"{self.run_id}_{task}_{pkg}_{entry_id}",
-            "method": "POST",
-            "url": "/v1/chat/completions",
-            "body": {
-                "messages": messages,
-                "model": model['name'],
-                "n": n,
-                "max_tokens": max_tokens,
-                "response_format": parsed_response_format,
-                "temperature": temperature,
-                "top_p": top_p,
-                "frequency_penalty": frequency_penalty,
-                "presence_penalty": presence_penalty,
-            }
-        }
-
-    def run_batch(self, task: str):
-
-        # count the characters in the input file and exit if it is above 209715200
-        with (open(f"../output/{self.run_id}/batch/{task}/batch_input.jsonl", "r") as f):
-            input_chars = len(f.read())
-            if input_chars == 0:
-                print(f"Input file for task {task} is empty, exiting...")
-                sys.exit(1)
-            elif input_chars > 209715200:
-                print(f"Input file for task {task} is too large ({input_chars} characters), exiting...")
-                sys.exit(1)
-            else:
-                print(f"Input file for task {task} is {input_chars} characters")
-
-        print(f"Running batch for task {task}...")
-        batch_input_file = self.client.files.create(
-            file=open(f"../output/{self.run_id}/batch/{task}/batch_input.jsonl", "rb"),
-            purpose="batch"
-        )
-
-        batch_metadata = self.client.batches.create(
-            input_file_id=batch_input_file.id,
-            endpoint="/v1/chat/completions",
-            completion_window="24h",
-            metadata={
-                "description": task
-            }
-        )
-
-        batch_metadata_json = json.dumps(json.loads(batch_metadata.model_dump_json()), indent=4)
-
-        # write the batch metadata to a file
-        with open(f"../output/{self.run_id}/batch/{task}/batch_metadata.json", "w") as f:
-            f.write(batch_metadata_json)
-
-    def retrieve_batch_result_entry(self, task: str, entry_id: str, batch_results_file: str = "batch_results.jsonl"):
-        # iterate through all lines of the batch-results.jsonl file and return the one with the matching custom_id
-        # print(f"Retrieving entry {entry_id} from batch results...")
-        with open(f"../output/{self.run_id}/batch/{task}/{batch_results_file}", "r") as f:
-            for line in f:
-                try:
-                    entry = json.loads(line)
-                except json.JSONDecodeError:
-                    print(f"Error decoding line: {line}")
-                    raise json.JSONDecodeError
-                if entry['custom_id'] == entry_id:
-                    # check for errors in the response
-                    if entry['error'] is not None:
-                        print(f"Error for entry {entry_id}: {entry['error']}")
-                        return None, 0, 0
-                    elif entry['response']['status_code'] != 200:
-                        print(f"Bad status code for entry {entry_id}: {entry['response']['status_code']}")
-                        return None, 0, 0
-                    elif entry['response']['body']['choices'] is None or len(entry['response']['body']['choices']) == 0:
-                        print(f"No choices for entry {entry_id}")
-                        return None, 0, 0
-                    elif entry['response']['body']['choices'][0]['finish_reason'] not in ['stop', 'length']:
-                        print(
-                            f"Finish reason not 'stop' or 'length' for entry {entry_id}: {entry['response']['body']['choices'][0]['finish_reason']}")
-                        return None, 0, 0
-                    # return the content of the first choice
-                    else:
-                        prompt_cost = entry['response']['body']['usage']['prompt_tokens'] * models['gpt-4o-mini'][
-                            'input_price'] / 2
-                        completion_cost = entry['response']['body']['usage']['completion_tokens'] * \
-                                          models['gpt-4o-mini']['output_price'] / 2
-                        output = entry['response']['body']['choices'][0]['message']['content']
-
-                        return output, prompt_cost + completion_cost, 0
-
-        print(f"Entry {entry_id} not found")
-        return None, 0, 0
-
-    def check_batch_status(self, task: str, batch_metadata_file: str = "batch_metadata.json") -> Optional[BatchStatus]:
-        if not os.path.exists(f"../output/{self.run_id}/batch/{task}/{batch_metadata_file}"):
-            return None
-
-        with open(f"../output/{self.run_id}/batch/{task}/{batch_metadata_file}", "r") as f:
-            batch_metadata = json.load(f)
+            batch_metadata_file: str = "batch_metadata.json"
+    ) -> BatchStatus | None:
+        # read the batch metadata file
+        batch_metadata = util.read_json_file(batch_metadata_file)
+        if batch_metadata is None:
+            raise FileNotFoundError(f"Batch metadata file {batch_metadata_file} not found for task {task}.")
 
         batch = self.client.batches.retrieve(batch_metadata['id'])
 
-        batch_status_json = json.dumps(json.loads(batch.model_dump_json()), indent=4)
-
-        # write the batch status to a file
-        with open(f"../output/{self.run_id}/batch/{task}/{batch_metadata_file}", "w") as f:
-            f.write(f"{batch_status_json}")
+        # update the batch metadata file
+        util.write_to_file(batch_metadata_file, json.dumps(json.loads(batch.model_dump_json()), indent=4))
 
         # Convert OpenAI batch status to unified format
         status_mapping = {
@@ -362,23 +222,157 @@ class ApiOpenAI(ApiBase):
 
         return unified_status
 
-    def get_batch_results(self, task: str, batch_metadata_file: str = "batch_metadata.json"):
+    def prepare_batch_entry(
+            self,
+            pkg: str,
+            task: str,
+            user_msg: str,
+            system_msg: str = None,
+            examples: list[tuple[str, str]] = None,
+            entry_id: int = 0,
+            model: str = None,
+            response_format: Literal['text', 'json', 'json_schema'] | BaseModel = 'text',
+            json_schema: dict = None,
+            temperature: float = 1.0,
+            max_tokens: int = 2048,
+            n: int = 1,
+            top_p: int = 1,
+            top_k: int = None,
+            frequency_penalty: float = 0.0,
+            presence_penalty: float = 0.0,
+            seed: int = None,
+            context_window: int = None,
+            timeout: int = -1,
+            batch_input_file: str = "batch_input.jsonl"
+    ):
+        if examples is None:
+            examples = []
 
-        with open(f"../output/{self.run_id}/batch/{task}/{batch_metadata_file}", "r") as f:
-            batch_metadata = json.load(f)
+        self.setup_task(task, model)
 
+        messages, system_msg, response_schema = util.prepare_prompt_messages(self.api, self.active_task, user_msg, system_msg, examples)
+        parsed_response_format = self._parse_response_format(response_format, response_schema)
+
+        entry = {
+            "custom_id": f"{self.run_id}_{task}_{pkg}_{entry_id}",
+            "method": "POST",
+            "url": "/v1/chat/completions",
+            "body": {
+                "messages": messages,
+                "model": model,
+                "n": n,
+                "max_tokens": max_tokens,
+                "response_format": parsed_response_format,
+                "temperature": temperature,
+                "top_p": top_p,
+                "frequency_penalty": frequency_penalty,
+                "presence_penalty": presence_penalty,
+            }
+        }
+
+        util.append_to_file(batch_input_file, json.dumps(entry))
+        return entry
+
+    def run_batch(
+            self,
+            task: str,
+            batch_input_file: str = "batch_input.jsonl",
+            batch_metadata_file: str = "batch_metadata.json"
+    ):
+
+        # count the characters in the input file and exit if it is above 209715200
+        with (open(batch_input_file, "r") as f):
+            input_chars = len(f.read())
+            if input_chars == 0:
+                raise ValueError(f"Batch input file for task {task} is empty")
+            elif input_chars > 209715200:
+                raise ValueError(f"Batch input file for task {task} is too large ({input_chars} characters)")
+            else:
+                print(f"Batch input file for task {task} is {input_chars} characters")
+
+        batch_input_file = self.client.files.create(
+            file=open(batch_input_file, "rb"),
+            purpose="batch"
+        )
+
+        batch_metadata = self.client.batches.create(
+            input_file_id=batch_input_file.id,
+            endpoint="/v1/chat/completions",
+            completion_window="24h",
+            metadata={
+                "description": task
+            }
+        )
+
+        util.write_to_file(batch_metadata_file, json.dumps(json.loads(batch_metadata.model_dump_json()), indent=4))
+
+    def retrieve_batch_result_entry(
+            self,
+            task: str,
+            entry_id: str,
+            batch_results_file: str = "batch_results.jsonl",
+            valid_stop_reasons: list[str] = None
+    ) -> tuple[str | None, float, float]:
+
+        if valid_stop_reasons is None:
+            valid_stop_reasons = ['stop', 'length']
+
+        # iterate through all lines of the batch-results.jsonl file and return the one with the matching custom_id
+        with (open(batch_results_file, "r") as f):
+            for line in f:
+                try:
+                    entry = json.loads(line)
+                except json.JSONDecodeError as e:
+                    print(f"Error decoding line: {line}", file=sys.stderr)
+                    raise e
+
+                if entry['custom_id'] == entry_id:
+                    # check for errors in the response
+                    if entry['error'] is not None:
+                        raise ValueError(f"Error in batch entry {entry_id}: {entry['error']}")
+                    elif entry['response']['status_code'] != 200:
+                        raise ValueError(f"Bad status code for entry {entry_id}: {entry['response']['status_code']}")
+                    elif entry['response']['body']['choices'] is None or len(entry['response']['body']['choices']) == 0:
+                        raise ValueError(f"No choices in response for entry {entry_id}")
+                    elif entry['response']['body']['choices'][0]['finish_reason'] not in valid_stop_reasons:
+                        raise ValueError(f"Finish reason not in valid stop reasons for entry {entry_id}: {entry['response']['body']['choices'][0]['finish_reason']}")
+
+                    # return the content of the first choice if all checks pass
+                    else:
+                        input_length = entry['response']['body']['usage']['prompt_tokens']
+                        output_length = entry['response']['body']['usage']['completion_tokens']
+                        cost = input_length * self.models[self.active_model]['input_price_batch'] \
+                               + output_length * self.models[self.active_model]['output_price_batch']
+                        output = entry['response']['body']['choices'][0]['message']['content']
+                        return output, cost, 0
+
+        # if we got through the entire file without finding the entry we want, raise an error
+        raise ValueError(f"Entry {entry_id} not found in batch results file {batch_results_file}")
+
+    def get_batch_results(
+            self,
+            task: str,
+            batch_metadata_file: str = "batch_metadata.json",
+            batch_results_file: str = "batch_results.jsonl",
+            batch_errors_file: str = "batch_errors.jsonl"
+    ) -> str | None:
+
+        # read the batch metadata file
+        batch_metadata = util.read_json_file(batch_metadata_file)
+        if batch_metadata is None:
+            raise FileNotFoundError(f"Batch metadata file {batch_metadata_file} not found for task {task}.")
+
+        # check for errors and write them to the errors file if necessary
         error_file_id = batch_metadata['error_file_id']
         if error_file_id is not None:
             batch_errors = self.client.files.content(batch_metadata['error_file_id']).text
-            with open(f"../output/{self.run_id}/batch/{task}/batch_errors.jsonl", "w") as f:
-                f.write(batch_errors)
+            util.write_to_file(batch_errors_file, batch_errors)
 
+        # check if the batch has completed and get the results if available
         output_file_id = batch_metadata['output_file_id']
         if output_file_id is not None:
             batch_results = self.client.files.content(batch_metadata['output_file_id']).text
-            with open(f"../output/{self.run_id}/batch/{task}/batch_results.jsonl", "w") as f:
-                f.write(batch_results)
-
+            util.write_to_file(batch_results_file, batch_results)
             return batch_results
         else:
             return None
@@ -390,3 +384,24 @@ class ApiOpenAI(ApiBase):
     def _unload_model(self):
         # This method is intentionally left empty as OpenAI models are not unloaded in the same way as other APIs.
         pass
+
+    def _parse_response_format(self, response_format, json_schema: dict) -> dict:
+        if response_format == 'text':
+            parsed_format = {'type': 'text'}
+        elif response_format == 'json':
+            parsed_format = {'type': 'json_object'}
+        elif response_format == 'json_schema':
+            if json_schema is None:
+                raise ValueError("json_schema must be provided when response_format is 'json_schema'")
+            parsed_format = {
+                'type': 'json_schema',
+                'json_schema': {
+                    'name': f"response_schema_{self.active_task}",
+                    'strict': True,
+                    'schema': json_schema
+                }
+            }
+        else:
+            raise ValueError(f"response_format '{response_format}' not supported")
+
+        return parsed_format

@@ -3,7 +3,7 @@ import timeit
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Literal, Union, Tuple, List, Optional
+from typing import Literal
 
 from pydantic import BaseModel
 
@@ -17,14 +17,14 @@ class BatchStatus:
     """
     batch_id: str
     status: Literal["in_progress", "completed", "failed", "canceled", "expired"]
-    created_at: Optional[datetime] = None
-    ended_at: Optional[datetime] = None
-    expires_at: Optional[datetime] = None
-    total_requests: Optional[int] = None
-    completed_requests: Optional[int] = None
-    failed_requests: Optional[int] = None
-    canceled_requests: Optional[int] = None
-    expired_requests: Optional[int] = None
+    created_at: datetime | None = None
+    ended_at: datetime | None = None
+    expires_at: datetime | None = None
+    total_requests: int | None = None
+    completed_requests: int | None = None
+    failed_requests: int | None = None
+    canceled_requests: int | None = None
+    expired_requests: int | None = None
     results_available: bool = False
 
 
@@ -81,7 +81,6 @@ class ApiBase(ABC):
         """
         pass
 
-    @abstractmethod
     def setup_task(self, task: str, model: str):
         """
         Set up the API connector for a specific task and model.
@@ -118,9 +117,10 @@ class ApiBase(ABC):
         if model_changed:
             try:
                 self._load_model()
-                self.active_task = task
             except Exception as e:
                 raise RuntimeError(f"Failed to load model: {self.active_model}.\nError: {e}")
+
+        self.active_task = task
 
     @abstractmethod
     def prompt(
@@ -129,7 +129,7 @@ class ApiBase(ABC):
             task: str,
             user_msg: str,
             system_msg: str = None,
-            examples: list[tuple[str, str]] = [],
+            examples: list[tuple[str, str]] = None,
             model: str = None,
             response_format: Literal['text', 'json', 'json_schema'] = 'text',
             json_schema: dict = None,
@@ -143,7 +143,7 @@ class ApiBase(ABC):
             seed: int = None,
             context_window: int = None,
             timeout: float = None
-    ) -> Tuple[str, float, float]:
+    ) -> tuple[str, float, float]:
         """
         Send a prompt to the LLM and get a response.
         
@@ -179,7 +179,7 @@ class ApiBase(ABC):
             task: str,
             user_msgs: list[str],
             system_msg: str = None,
-            examples: list[tuple[str, str]] = [],
+            examples: list[tuple[str, str]] = None,
             model: str = None,
             response_format: Literal['text', 'json', 'json_schema'] = 'text',
             json_schema: dict = None,
@@ -193,7 +193,7 @@ class ApiBase(ABC):
             seed: int = None,
             context_window: int = None,
             timeout: float = None
-    ) -> Tuple[List[str], float, float]:
+    ) -> tuple[list[str], float, float]:
         """
         Send multiple prompts to the LLM in parallel and get responses.
         
@@ -223,16 +223,24 @@ class ApiBase(ABC):
         pass
 
     @abstractmethod
+    def check_batch_status(
+            self,
+            task: str,
+            batch_metadata_file: str = "batch_metadata.json"
+    ) -> BatchStatus | None:
+        pass
+
+    @abstractmethod
     def prepare_batch_entry(
             self,
             pkg: str,
             task: str,
             user_msg: str,
             system_msg: str = None,
-            examples: list[tuple[str, str]] = [],
+            examples: list[tuple[str, str]] = None,
             entry_id: int = 0,
             model: str = None,
-            response_format: Union[Literal['text', 'json', 'json_schema'], BaseModel] = 'text',
+            response_format: Literal['text', 'json', 'json_schema'] | BaseModel = 'text',
             json_schema: dict = None,
             temperature: float = 1.0,
             max_tokens: int = 2048,
@@ -243,7 +251,8 @@ class ApiBase(ABC):
             presence_penalty: float = 0.0,
             seed: int = None,
             context_window: int = None,
-            timeout: int = -1
+            timeout: int = -1,
+            batch_input_file: str = "batch_input.jsonl"
     ):
         """
         Prepare a batch entry for batch processing.
@@ -268,6 +277,7 @@ class ApiBase(ABC):
             seed: Random seed for reproducibility
             context_window: Size of the context window
             timeout: Timeout for the request in seconds
+            batch_input_file: Path to the batch input file
             
         Returns:
             Batch entry configuration
@@ -275,53 +285,69 @@ class ApiBase(ABC):
         pass
 
     @abstractmethod
-    def run_batch(self, task: str):
+    def run_batch(
+            self,
+            task: str,
+            batch_input_file: str = "batch_input.jsonl",
+            batch_metadata_file: str = "batch_metadata.json"
+    ):
         """
         Run a batch of prompts.
         
         Args:
             task: Task name
+            batch_input_file: Path to the input file
+            batch_metadata_file: Path to the metadata file
         """
         pass
 
     @abstractmethod
-    def retrieve_batch_result_entry(self, task: str, entry_id: str, batch_results_file: str = "batch_results.jsonl"):
+    def retrieve_batch_result_entry(
+            self,
+            task: str,
+            entry_id: str,
+            batch_results_file: str = "batch_results.jsonl",
+            valid_stop_reasons: list[str] = None
+    ) -> tuple[str | None, float, float]:
         """
-        Retrieve a specific batch result entry.
-        
-        Args:
-            task: Task name
-            entry_id: Unique identifier for the batch entry
-            batch_results_file: Path to the batch results file
-            
-        Returns:
-            Batch result entry
+            Check the status of a specific entry in a batch job.
+
+            This method retrieves the result entry of a batch job from a specified
+            batch results file. If the entry is not yet completed or has an invalid
+            stop reason, it will return None for the result. The method also calculates
+            and returns the elapsed time and total time for the task.
+
+            Args:
+                task: The name of the task whose batch entry result is to be retrieved.
+                entry_id: The identifier of the batch entry to retrieve.
+                batch_results_file: Path to the JSONL file containing batch results.
+                valid_stop_reasons: A list of acceptable stop reasons for the task.
+
+            Returns:
+                A tuple containing:
+                - The result of the batch entry (str or None if not valid/completed).
+                - The elapsed time for the task execution as a float.
+                - The total time for the task execution as a float.
         """
         pass
 
     @abstractmethod
-    def check_batch_status(self, task: str, batch_metadata_file: str = "batch_metadata.json") -> Optional[BatchStatus]:
-        """
-        Check the status of a batch job.
-        
-        Args:
-            task: Task name
-            batch_metadata_file: Path to the batch metadata file
-            
-        Returns:
-            Unified BatchStatus object or None if batch doesn't exist
-        """
-        pass
-
-    @abstractmethod
-    def get_batch_results(self, task: str, batch_metadata_file: str = "batch_metadata.json"):
+    def get_batch_results(
+            self,
+            task: str,
+            batch_metadata_file: str = "batch_metadata.json",
+            batch_results_file: str = "batch_results.jsonl",
+            batch_errors_file: str = "batch_errors.jsonl"
+    ) -> str | None:
         """
         Get the results of a batch job.
-        
+
         Args:
             task: Task name
             batch_metadata_file: Path to the batch metadata file
-            
+            batch_results_file: Path to the batch results file
+            batch_errors_file: Path to the batch errors file
+
         Returns:
             Batch results
         """
@@ -350,11 +376,11 @@ class ApiBase(ABC):
             pkg: str,
             task: str,
             response_format: Literal['text', 'json', 'json_schema']
-    ) -> Tuple[str, float, float]:
+    ) -> tuple[str, float, float]:
         processing_time = timeit.default_timer() - start_time
 
         # calculate the cost of the API call based on the total number of tokens used
-        cost = input_len * self.active_model['input_price'] + output_len * self.active_model['output_price']
+        cost = input_len * self.models[self.active_model]['input_price'] + output_len * self.models[self.active_model]['output_price']
 
         # log the prompt and result
         if self.run_id is not None and pkg is not None and task is not None:
@@ -362,7 +388,7 @@ class ApiBase(ABC):
                 run_id=self.run_id,
                 task=task,
                 pkg=pkg,
-                model_name=self.active_model['name'],
+                model_name=self.active_model,
                 output_format='txt' if response_format == 'text' else 'json',
                 cost=cost,
                 processing_time=processing_time,

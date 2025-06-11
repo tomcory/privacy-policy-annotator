@@ -4,14 +4,16 @@ from typing import Literal, List, Tuple, Optional
 
 import ollama
 from ollama import AsyncClient
+from pydantic import BaseModel
 from tqdm import tqdm
 
 from src import util
 from src.llm_connectors.api_base import ApiBase, BatchStatus
+from src.llm_connectors.api_openai import available_models
 
 api = 'ollama'
 
-models = {
+available_models = {
     'deepseek-r1:7b': {
         'name': 'deepseek-r1:7b',
         'api': 'ollama',
@@ -119,15 +121,21 @@ class ApiOllama(ApiBase):
     Ollama API connector for interacting with LLMs hosted on Ollama.
     """
 
-    def __init__(self, run_id: str, hostname: str = None, default_model: str = None):
+    def __init__(
+            self,
+            run_id: str,
+            hostname: str = None,
+            default_model: str = None
+    ):
         super().__init__(
             run_id=run_id,
-            models=models,
-            api=api,
+            models=available_models,
+            api='ollama',
             api_key_name='OLLAMA_API_KEY',
             default_model=default_model,
             hostname=hostname,
-            supports_batch=True
+            supports_batch=False,
+            supports_parallel=False
         )
 
         # Configure headers with Bearer token if API key is available
@@ -146,10 +154,6 @@ class ApiOllama(ApiBase):
 
     def close(self):
         self._unload_model()
-        print(f'Closed Ollama API client.')
-
-    def setup_task(self, task: str, model: str):
-        super().setup_task(task, model)
 
     def prompt(
             self,
@@ -157,7 +161,7 @@ class ApiOllama(ApiBase):
             task: str,
             user_msg: str,
             system_msg: str = None,
-            examples: list[tuple[str, str]] = [],
+            examples: list[tuple[str, str]] = None,
             model: str = None,
             response_format: Literal['text', 'json', 'json_schema'] = 'text',
             json_schema: dict = None,
@@ -171,7 +175,10 @@ class ApiOllama(ApiBase):
             seed: int = None,
             context_window: int = None,
             timeout: float = None
-    ) -> Tuple[str, float, float]:
+    ) -> tuple[str, float, float]:
+
+        if examples is None:
+            examples = []
 
         start_time = timeit.default_timer()
         self.setup_task(task, model)
@@ -203,7 +210,7 @@ class ApiOllama(ApiBase):
             user_msgs: list[str],
             system_msg: str = None,
             examples: list[tuple[str, str]] = None,
-            model: str = None,
+            model: dict = None,
             response_format: Literal['text', 'json', 'json_schema'] = 'text',
             json_schema: dict = None,
             temperature: float = 1.0,
@@ -216,7 +223,10 @@ class ApiOllama(ApiBase):
             seed: int = None,
             context_window: int = None,
             timeout: float = None
-    ) -> Tuple[List[str], float, float]:
+    ) -> tuple[list[str], float, float]:
+
+        if examples is None:
+            examples = []
 
         start_time = timeit.default_timer()
         self.setup_task(task, model)
@@ -259,16 +269,23 @@ class ApiOllama(ApiBase):
 
         return responses, total_cost, processing_time
 
+    def check_batch_status(
+            self,
+            task: str,
+            batch_metadata_file: str = "batch_metadata.json"
+    ) -> BatchStatus | None:
+        raise NotImplementedError("Batch processing is not supported")
+
     def prepare_batch_entry(
             self,
             pkg: str,
             task: str,
             user_msg: str,
             system_msg: str = None,
-            examples: list[tuple[str, str]] = [],
+            examples: list[tuple[str, str]] = None,
             entry_id: int = 0,
-            model: dict = None,
-            response_format: Literal['text', 'json', 'json_schema'] = 'text',
+            model: str = None,
+            response_format: Literal['text', 'json', 'json_schema'] | BaseModel = 'text',
             json_schema: dict = None,
             temperature: float = 1.0,
             max_tokens: int = 2048,
@@ -279,21 +296,36 @@ class ApiOllama(ApiBase):
             presence_penalty: float = 0.0,
             seed: int = None,
             context_window: int = None,
-            timeout: int = -1
+            timeout: int = -1,
+            batch_input_file: str = "batch_input.jsonl"
     ):
-        raise NotImplementedError("Batch processing is not supported by Ollama")
+        raise NotImplementedError("Batch processing is not supported")
 
-    def run_batch(self, task: str):
-        raise NotImplementedError("Batch processing is not supported by Ollama")
+    def run_batch(
+            self,
+            task: str,
+            batch_input_file: str = "batch_input.jsonl",
+            batch_metadata_file: str = "batch_metadata.json"
+    ):
+        raise NotImplementedError("Batch processing is not supported")
 
-    def retrieve_batch_result_entry(self, task: str, entry_id: str, batch_results_file: str = "batch_results.jsonl"):
-        raise NotImplementedError("Batch processing is not supported by Ollama")
+    def retrieve_batch_result_entry(
+            self,
+            task: str,
+            entry_id: str,
+            batch_results_file: str = "batch_results.jsonl",
+            valid_stop_reasons: list[str] = None
+    ) -> tuple[str | None, float, float]:
+        raise NotImplementedError("Batch processing is not supported")
 
-    def check_batch_status(self, task: str, batch_metadata_file: str = "batch_metadata.json") -> Optional[BatchStatus]:
-        raise NotImplementedError("Batch processing is not supported by Ollama")
-
-    def get_batch_results(self, task: str, batch_metadata_file: str = "batch_metadata.json"):
-        raise NotImplementedError("Batch processing is not supported by Ollama")
+    def get_batch_results(
+            self,
+            task: str,
+            batch_metadata_file: str = "batch_metadata.json",
+            batch_results_file: str = "batch_results.jsonl",
+            batch_errors_file: str = "batch_errors.jsonl"
+    ) -> str | None:
+        raise NotImplementedError("Batch processing is not supported")
 
     def _load_model(self):
 

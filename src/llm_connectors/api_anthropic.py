@@ -6,13 +6,14 @@ from datetime import datetime
 from typing import Literal, Union, Tuple, List, Optional
 
 from anthropic import Anthropic
+from pydantic import BaseModel
 
 from src import util
 from src.llm_connectors.api_base import ApiBase, BatchStatus
 
 api = 'anthropic'
 
-models = {
+available_models = {
     'claude-opus-4': {
         'name': 'claude-opus-4-0',
         'display_name': 'Claude Opus 4',
@@ -92,31 +93,35 @@ def _format_messages(system_msg: str, user_msg: str, examples: List[Tuple[str, s
 
 class ApiAnthropic(ApiBase):
 
-    def __init__(self, run_id: str, hostname: str = None, default_model: str = None):
+    def __init__(
+            self,
+            run_id: str,
+            hostname: str = None,
+            default_model: str = None
+    ):
         super().__init__(
             run_id=run_id,
-            models=models,
-            api=api,
+            models=available_models,
+            api='anthropic',
             api_key_name='ANTHROPIC_API_KEY',
             default_model=default_model,
             hostname=hostname,
-            supports_batch=True
+            supports_batch=True,
+            supports_parallel=False
         )
 
-        if hostname:
+        if self.hostname:
             self.client = Anthropic(
-                api_key=self.api_key,
-                base_url=hostname
+                api_key=self.api_key
             )
         else:
-            self.client = Anthropic(api_key=self.api_key)
+            self.client = Anthropic(
+                api_key=self.api_key,
+                base_url=self.hostname
+            )
 
     def close(self):
-        print("Closed Anthropic API client.")
         self.client.close()
-
-    def setup_task(self, task: str, model: str):
-        super().setup_task(task, model)
 
     def prompt(
             self,
@@ -124,7 +129,7 @@ class ApiAnthropic(ApiBase):
             task: str,
             user_msg: str,
             system_msg: str = None,
-            examples: list[tuple[str, str]] = [],
+            examples: list[tuple[str, str]] = None,
             model: str = None,
             response_format: Literal['text', 'json', 'json_schema'] = 'text',
             json_schema: dict = None,
@@ -138,7 +143,10 @@ class ApiAnthropic(ApiBase):
             seed: int = None,
             context_window: int = None,
             timeout: float = None
-    ) -> Tuple[str, float, float]:
+    ) -> tuple[str, float, float]:
+
+        if examples is None:
+            examples = []
 
         start_time = timeit.default_timer()
         self.setup_task(task, model)
@@ -174,8 +182,8 @@ class ApiAnthropic(ApiBase):
             task: str,
             user_msgs: list[str],
             system_msg: str = None,
-            examples: list[tuple[str, str]] = [],
-            model: str = None,
+            examples: list[tuple[str, str]] = None,
+            model: dict = None,
             response_format: Literal['text', 'json', 'json_schema'] = 'text',
             json_schema: dict = None,
             temperature: float = 1.0,
@@ -188,206 +196,18 @@ class ApiAnthropic(ApiBase):
             seed: int = None,
             context_window: int = None,
             timeout: float = None
-    ) -> Tuple[List[str], float, float]:
-        raise NotImplementedError("Parallel requests are not supported by the Anthropic API connector")
+    ) -> tuple[list[str], float, float]:
+        raise NotImplementedError("Parallel requests are not supported")
 
-    def prepare_batch_entry(
+    def check_batch_status(
             self,
-            pkg: str,
             task: str,
-            user_msg: str,
-            system_msg: str = None,
-            examples: list[tuple[str, str]] = [],
-            entry_id: int = 0,
-            model: str = None,
-            response_format: Union[Literal['text', 'json', 'json_schema']] = 'text',
-            json_schema: dict = None,
-            temperature: float = 1.0,
-            max_tokens: int = 2048,
-            n: int = 1,
-            top_p: int = 1,
-            top_k: int = None,
-            frequency_penalty: float = 0.0,
-            presence_penalty: float = 0.0,
-            seed: int = None,
-            context_window: int = None,
-            timeout: int = -1
-    ):
-        """
-        Prepare a batch entry for Anthropic Message Batches API.
-        """
-        self.setup_task(task, model)
-
-        # Load the messages from the prompts folder or use the provided messages
-        _, system_msg, response_schema, _, _, _ = util.prepare_prompt_messages(
-            api, task, user_msg, system_msg, examples
-        )
-
-        # Format messages for Anthropic API
-        messages = _format_messages(system_msg, user_msg, examples)
-
-        # Set up response format
-        response_format_dict = None
-        if response_format == 'json' or response_format == 'json_schema':
-            response_format_dict = {"type": "json"}
-            if json_schema is not None and response_format == 'json_schema':
-                response_format_dict["schema"] = json_schema
-
-        # Create the batch request entry
-        batch_entry = {
-            "custom_id": f"{self.run_id}_{task}_{pkg}_{entry_id}",
-            "params": {
-                "model": model['name'],
-                "messages": messages,
-                "max_tokens": max_tokens,
-                "temperature": temperature,
-                "top_p": top_p
-            }
-        }
-
-        # Add system message if provided
-        if system_msg:
-            batch_entry["params"]["system"] = system_msg
-
-        # Add response format if specified
-        if response_format_dict:
-            batch_entry["params"]["response_format"] = response_format_dict
-
-        return batch_entry
-
-    def run_batch(self, task: str):
-        """
-        Run a batch of message requests using Anthropic's Message Batches API.
-        """
-        batch_input_file = f"../output/{self.run_id}/batch/{task}/batch_input.jsonl"
-
-        # Check if input file exists and is not empty
-        if not os.path.exists(batch_input_file):
-            print(f"Batch input file for task {task} does not exist, exiting...")
-            sys.exit(1)
-
-        with open(batch_input_file, "r") as f:
-            input_content = f.read()
-            if len(input_content.strip()) == 0:
-                print(f"Input file for task {task} is empty, exiting...")
-                sys.exit(1)
-
-            # Parse and validate requests
-            requests = []
-            for line in input_content.strip().split('\n'):
-                if line.strip():
-                    requests.append(json.loads(line))
-
-            print(f"Input file for task {task} contains {len(requests)} requests")
-
-        print(f"Running batch for task {task}...")
-
-        # Create the message batch using the correct API endpoint
-        message_batch = self.client.messages.batches.create(
-            requests=requests
-        )
-
-        # Save batch metadata
-        batch_metadata = {
-            "id": message_batch.id,
-            "type": message_batch.type,
-            "processing_status": message_batch.processing_status,
-            "request_counts": message_batch.request_counts.model_dump() if message_batch.request_counts else None,
-            "ended_at": message_batch.ended_at,
-            "created_at": message_batch.created_at,
-            "expires_at": message_batch.expires_at,
-            "cancel_initiated_at": message_batch.cancel_initiated_at,
-            "results_url": message_batch.results_url
-        }
-
-        batch_metadata_json = json.dumps(batch_metadata, indent=4, default=str)
-
-        # Write the batch metadata to a file
-        with open(f"../output/{self.run_id}/batch/{task}/batch_metadata.json", "w") as f:
-            f.write(batch_metadata_json)
-
-        print(f"Batch {message_batch.id} created successfully for task {task}")
-
-    def retrieve_batch_result_entry(self, task: str, entry_id: str, batch_results_file: str = "batch_results.jsonl"):
-        """
-        Retrieve a specific batch result entry from the results file.
-        """
-        results_file_path = f"../output/{self.run_id}/batch/{task}/{batch_results_file}"
-
-        if not os.path.exists(results_file_path):
-            print(f"Batch results file {results_file_path} does not exist")
-            return None, 0, 0
-
-        with open(results_file_path, "r") as f:
-            for line in f:
-                try:
-                    entry = json.loads(line)
-                except json.JSONDecodeError:
-                    print(f"Error decoding line: {line}")
-                    continue
-
-                if entry.get('custom_id') == entry_id:
-                    # Check for errors in the response
-                    if 'error' in entry and entry['error'] is not None:
-                        print(f"Error for entry {entry_id}: {entry['error']}")
-                        return None, 0, 0
-
-                    # Extract the result - check if request succeeded
-                    if entry.get('result', {}).get('type') == 'succeeded':
-                        result = entry['result']
-                        message = result.get('message')
-                        if not message or not message.get('content'):
-                            print(f"No message content for entry {entry_id}")
-                            return None, 0, 0
-
-                        output = message['content'][0]['text']
-
-                        # Calculate cost using batch pricing
-                        usage = result.get('usage', {})
-                        input_tokens = result.usage.get('input_tokens', 0)
-                        output_tokens = usage.get('output_tokens', 0)
-
-                        # Use the model from the result or default
-                        model_name = result.get('model', self.active_model[
-                            'name'] if self.active_model else 'claude-3-5-sonnet-latest')
-                        model_config = None
-                        for model_key, config in models.items():
-                            if config['name'] == model_name:
-                                model_config = config
-                                break
-
-                        if model_config:
-                            cost = (input_tokens * model_config['input_price_batch'] +
-                                    output_tokens * model_config['output_price_batch'])
-                        else:
-                            cost = 0
-
-                        return output, cost, 0
-                    elif entry.get('result', {}).get('type') == 'errored':
-                        error = entry['result'].get('error', {})
-                        print(f"Request errored for entry {entry_id}: {error}")
-                        return None, 0, 0
-                    elif entry.get('result', {}).get('type') == 'canceled':
-                        print(f"Request was canceled for entry {entry_id}")
-                        return None, 0, 0
-                    elif entry.get('result', {}).get('type') == 'expired':
-                        print(f"Request expired for entry {entry_id}")
-                        return None, 0, 0
-
-        print(f"Entry {entry_id} not found in batch results")
-        return None, 0, 0
-
-    def check_batch_status(self, task: str, batch_metadata_file: str = "batch_metadata.json") -> Optional[BatchStatus]:
-        """
-        Check the status of a message batch.
-        """
-        metadata_file_path = f"../output/{self.run_id}/batch/{task}/{batch_metadata_file}"
-
-        if not os.path.exists(metadata_file_path):
-            return None
-
-        with open(metadata_file_path, "r") as f:
-            batch_metadata = json.load(f)
+            batch_metadata_file: str = "batch_metadata.json"
+    ) -> BatchStatus | None:
+        # read the batch metadata file
+        batch_metadata = util.read_json_file(batch_metadata_file)
+        if batch_metadata is None:
+            raise FileNotFoundError(f"Batch metadata file {batch_metadata_file} not found for task {task}.")
 
         batch_id = batch_metadata.get('id')
         if not batch_id:
@@ -467,17 +287,213 @@ class ApiAnthropic(ApiBase):
             print(f"Error retrieving batch status: {e}")
             return None
 
-    def get_batch_results(self, task: str, batch_metadata_file: str = "batch_metadata.json"):
-        """
-        Get the results of a completed message batch.
-        """
-        metadata_file_path = f"../output/{self.run_id}/batch/{task}/{batch_metadata_file}"
+    def prepare_batch_entry(
+            self,
+            pkg: str,
+            task: str,
+            user_msg: str,
+            system_msg: str = None,
+            examples: list[tuple[str, str]] = None,
+            entry_id: int = 0,
+            model: str = None,
+            response_format: Literal['text', 'json', 'json_schema'] | BaseModel = 'text',
+            json_schema: dict = None,
+            temperature: float = 1.0,
+            max_tokens: int = 2048,
+            n: int = 1,
+            top_p: int = 1,
+            top_k: int = None,
+            frequency_penalty: float = 0.0,
+            presence_penalty: float = 0.0,
+            seed: int = None,
+            context_window: int = None,
+            timeout: int = -1,
+            batch_input_file: str = "batch_input.jsonl"
+    ):
+        if examples is None:
+            examples = []
 
-        if not os.path.exists(metadata_file_path):
-            print(f"Batch metadata file {metadata_file_path} does not exist")
+        self.setup_task(task, model)
+
+        # Load the messages from the prompts folder or use the provided messages
+        _, system_msg, response_schema = util.prepare_prompt_messages(
+            api, task, user_msg, system_msg, examples
+        )
+
+        # Format messages for Anthropic API
+        messages = _format_messages(system_msg, user_msg, examples)
+
+        # Set up response format
+        response_format_dict = None
+        if response_format == 'json' or response_format == 'json_schema':
+            response_format_dict = {"type": "json"}
+            if json_schema is not None and response_format == 'json_schema':
+                response_format_dict["schema"] = json_schema
+
+        # Create the batch request entry
+        batch_entry = {
+            "custom_id": f"{self.run_id}_{task}_{pkg}_{entry_id}",
+            "params": {
+                "model": model['name'],
+                "messages": messages,
+                "max_tokens": max_tokens,
+                "temperature": temperature,
+                "top_p": top_p
+            }
+        }
+
+        # Add system message if provided
+        if system_msg:
+            batch_entry["params"]["system"] = system_msg
+
+        # Add response format if specified
+        if response_format_dict:
+            batch_entry["params"]["response_format"] = response_format_dict
+
+        return batch_entry
+
+    def run_batch(
+            self,
+            task: str,
+            batch_input_file: str = "batch_input.jsonl",
+            batch_metadata_file: str = "batch_metadata.json"
+    ):
+
+        # Check if input file exists and is not empty
+        if not os.path.exists(batch_input_file):
+            print(f"Batch input file for task {task} does not exist, exiting...")
+            sys.exit(1)
+
+        with open(batch_input_file, "r") as f:
+            input_content = f.read()
+            if len(input_content.strip()) == 0:
+                print(f"Input file for task {task} is empty, exiting...")
+                sys.exit(1)
+
+            # Parse and validate requests
+            requests = []
+            for line in input_content.strip().split('\n'):
+                if line.strip():
+                    requests.append(json.loads(line))
+
+            print(f"Input file for task {task} contains {len(requests)} requests")
+
+        print(f"Running batch for task {task}...")
+
+        # Create the message batch using the correct API endpoint
+        message_batch = self.client.messages.batches.create(
+            requests=requests
+        )
+
+        # Save batch metadata
+        batch_metadata = {
+            "id": message_batch.id,
+            "type": message_batch.type,
+            "processing_status": message_batch.processing_status,
+            "request_counts": message_batch.request_counts.model_dump() if message_batch.request_counts else None,
+            "ended_at": message_batch.ended_at,
+            "created_at": message_batch.created_at,
+            "expires_at": message_batch.expires_at,
+            "cancel_initiated_at": message_batch.cancel_initiated_at,
+            "results_url": message_batch.results_url
+        }
+
+        batch_metadata_json = json.dumps(batch_metadata, indent=4, default=str)
+
+        # Write the batch metadata to a file
+        with open(f"../output/{self.run_id}/batch/{task}/batch_metadata.json", "w") as f:
+            f.write(batch_metadata_json)
+
+        print(f"Batch {message_batch.id} created successfully for task {task}")
+
+    def retrieve_batch_result_entry(
+            self,
+            task: str,
+            entry_id: str,
+            batch_results_file: str = "batch_results.jsonl",
+            valid_stop_reasons: list[str] = None
+    ) -> tuple[str | None, float, float]:
+        """
+        Retrieve a specific batch result entry from the results file.
+        """
+        results_file_path = f"../output/{self.run_id}/batch/{task}/{batch_results_file}"
+
+        if not os.path.exists(results_file_path):
+            print(f"Batch results file {results_file_path} does not exist")
+            return None, 0, 0
+
+        with open(results_file_path, "r") as f:
+            for line in f:
+                try:
+                    entry = json.loads(line)
+                except json.JSONDecodeError:
+                    print(f"Error decoding line: {line}")
+                    continue
+
+                if entry.get('custom_id') == entry_id:
+                    # Check for errors in the response
+                    if 'error' in entry and entry['error'] is not None:
+                        print(f"Error for entry {entry_id}: {entry['error']}")
+                        return None, 0, 0
+
+                    # Extract the result - check if request succeeded
+                    if entry.get('result', {}).get('type') == 'succeeded':
+                        result = entry['result']
+                        message = result.get('message')
+                        if not message or not message.get('content'):
+                            print(f"No message content for entry {entry_id}")
+                            return None, 0, 0
+
+                        output = message['content'][0]['text']
+
+                        # Calculate cost using batch pricing
+                        usage = result.get('usage', {})
+                        input_tokens = result.usage.get('input_tokens', 0)
+                        output_tokens = usage.get('output_tokens', 0)
+
+                        # Use the model from the result or default
+                        model_name = result.get('model', self.active_model[
+                            'name'] if self.active_model else 'claude-3-5-sonnet-latest')
+                        model_config = None
+                        for model_key, config in available_models.items():
+                            if config['name'] == model_name:
+                                model_config = config
+                                break
+
+                        if model_config:
+                            cost = (input_tokens * model_config['input_price_batch'] +
+                                    output_tokens * model_config['output_price_batch'])
+                        else:
+                            cost = 0
+
+                        return output, cost, 0
+                    elif entry.get('result', {}).get('type') == 'errored':
+                        error = entry['result'].get('error', {})
+                        print(f"Request errored for entry {entry_id}: {error}")
+                        return None, 0, 0
+                    elif entry.get('result', {}).get('type') == 'canceled':
+                        print(f"Request was canceled for entry {entry_id}")
+                        return None, 0, 0
+                    elif entry.get('result', {}).get('type') == 'expired':
+                        print(f"Request expired for entry {entry_id}")
+                        return None, 0, 0
+
+        print(f"Entry {entry_id} not found in batch results")
+        return None, 0, 0
+
+    def get_batch_results(
+            self,
+            task: str,
+            batch_metadata_file: str = "batch_metadata.json",
+            batch_results_file: str = "batch_results.jsonl",
+            batch_errors_file: str = "batch_errors.jsonl"
+    ) -> str | None:
+
+        if not os.path.exists(batch_metadata_file):
+            print(f"Batch metadata file {batch_metadata_file} does not exist")
             return None
 
-        with open(metadata_file_path, "r") as f:
+        with open(batch_metadata_file, "r") as f:
             batch_metadata = json.load(f)
 
         batch_id = batch_metadata.get('id')
