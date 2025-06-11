@@ -1,60 +1,65 @@
 import json
-from typing import Union
 
-import tiktoken
 from bs4 import BeautifulSoup, NavigableString, Tag, PageElement
 
 from src import util
-from src.llm_connectors.api_ollama import ApiOllama
-from src.llm_connectors.api_openai import ApiOpenAI
+from src.llm_connectors.api_base import ApiBase
+from src.pipeline_steps.pipeline_step import PipelineStep
 from src.state_manager import BaseStateManager
 
-BLOCK_TYPES = {
-    'td': 'table_cell',
-    'th': 'table_header',
-    'li': 'list_item',
-    'p': 'text',
-    'div': 'text',
-    'h1': 'headline',
-    'h2': 'headline',
-    'h3': 'headline',
-    'h4': 'headline',
-    'h5': 'headline',
-    'h6': 'headline'
-}
 
+class Parser(PipelineStep):
 
-async def execute(
-        run_id: str,
-        pkg: str,
-        task: str,
-        in_folder: str,
-        out_folder: str,
-        state_manager: BaseStateManager,
-        client: Union[ApiOpenAI, ApiOllama],
-        model: dict = None,
-        use_batch_result: bool = False,
-        use_parallel: bool = False
-):
-    try:
-        html = util.read_from_file(f"{in_folder}/{pkg}.html")
-        output = parse_to_json(html)
-        util.write_to_file(f"{out_folder}/{pkg}.json", output)
-    except Exception as e:
-        await state_manager.raise_error(error_message=str(e))
+    def __init__(
+            self,
+            run_id: str,
+            skip: bool,
+            in_folder: str,
+            out_folder: str,
+            state_manager: BaseStateManager,
+            batch_input_file: str = "batch_input.json",
+            batch_metadata_file: str = "batch_metadata.json",
+            batch_results_file: str = "batch_results.jsonl",
+            batch_errors_file: str = "batch_errors.jsonl",
+            is_batch_step: bool = False,
+            parallel_prompt: bool = False,
+            model: str = None,
+            client: ApiBase = None
+    ):
+        super().__init__(
+            run_id=run_id,
+            task='parse',
+            details='',
+            skip=skip,
+            is_llm_step=False,
+            is_batch_step=is_batch_step,
+            in_folder=in_folder,
+            out_folder=out_folder,
+            state_manager=state_manager,
+            batch_input_file=batch_input_file,
+            batch_metadata_file=batch_metadata_file,
+            batch_results_file=batch_results_file,
+            batch_errors_file=batch_errors_file,
+            parallel_prompt=parallel_prompt,
+            model=model,
+            client=client
+        )
 
+        self.BLOCK_TYPES = {
+            'td': 'table_cell',
+            'th': 'table_header',
+            'li': 'list_item',
+            'p': 'text',
+            'div': 'text',
+            'h1': 'headline',
+            'h2': 'headline',
+            'h3': 'headline',
+            'h4': 'headline',
+            'h5': 'headline',
+            'h6': 'headline'
+        }
 
-def parse_to_json(html: str):
-    if len(html) > 0:
-        parser = Parser(html)
-        return json.dumps(parser.parse(), indent=2)
-    else:
-        raise Exception("Empty html")
-
-
-class Parser:
-    def __init__(self, html_content, tokenizer_encoding='cl100k_base'):
-        self.html_content = html_content
+        self.html_content = None
         self.blocks = []
         self.headline_levels = [-1] * 6
         self.context = []
@@ -63,9 +68,24 @@ class Parser:
         self.table_y = 0
         self.table_header = []
         self.table_row_header = None
-        self.encoder = tiktoken.get_encoding(tokenizer_encoding)
 
-    def parse(self):
+    async def execute(self, pkg: str):
+        try:
+            self.html_content = util.read_from_file(f"{self.in_folder}/{pkg}.html")
+            if len(self.html_content) > 0:
+                parsed_structure = self._parse()
+                output = json.dumps(parsed_structure, indent=2)
+                util.write_to_file(f"{self.out_folder}/{pkg}.json", output)
+            else:
+                #TODO: handle empty HTML
+                pass
+        except Exception as e:
+            await self.state_manager.raise_error(error_message=str(e))
+
+    async def prepare_batch(self, pkg: str):
+        pass
+
+    def _parse(self):
         if not self.blocks:
             soup = BeautifulSoup(self.html_content, 'html.parser')
             self.__handle_children(soup)
@@ -85,7 +105,7 @@ class Parser:
 
     def __handle_string(self, element: NavigableString):
         parent = element.parent.name
-        block_type = BLOCK_TYPES.get(parent) if parent in BLOCK_TYPES else 'UNKNOWN_' + parent
+        block_type = self.BLOCK_TYPES.get(parent) if parent in self.BLOCK_TYPES else 'UNKNOWN_' + parent
         block = {
             'type': block_type,
             'context': self.context.copy(),
@@ -108,7 +128,6 @@ class Parser:
     def __handle_headline(self, element: Tag):
         # add the headline's text as a passage
         self.__handle_children(element)
-
         # if there's already a context entry for this headline level, trim the context accordingly
         previous_index, _ = self.__find_context_entry(element.name)
         if previous_index >= 0:
@@ -118,7 +137,6 @@ class Parser:
 
     def __handle_block(self, element):
         context_length = len(self.context)
-
         # if there's a preceding paragraph, add it to the context
         if self.predecessor is not None and self.predecessor.name in ['p', 'div']:
             context_type = 'table_intro' if element.name == 'table' else 'list_intro'
@@ -149,7 +167,6 @@ class Parser:
 
     def __handle_table_cell(self, element):
         context_length = len(self.context)
-
         # add this cell as the new row header if it's the first cell of the row
         if self.table_x == 0:
             self.table_row_header = element.text.strip()
