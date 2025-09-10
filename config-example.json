@@ -1,22 +1,35 @@
 {
     "run_id": "batch-000",
+    "pkg": null,
     "default_model": "gpt-4o-mini",
     "models": {
         "detect": "gpt-4o-mini",
-        "fix_headlines": "gpt-4o-mini",
         "annotate": "gpt-4o-mini",
-        "review": "gpt-4o-mini"
+        "review": "gpt-4o-mini",
+        "targeted_annotate": "gpt-4o-mini"
     },
     "crawl_retries": 2,
     "skip_crawl": true,
     "skip_clean": false,
     "skip_detect": true,
-    "skip_headline_fix": true,
     "skip_parse": true,
     "skip_annotate": true,
     "skip_review": true,
+    "skip_classify": false,
+    "skip_targeted_annotate": false,
     "batch_detect": false,
     "batch_annotate": false,
     "batch_review": false,
-    "parallel_prompt": false
+    "batch_classify": false,
+    "batch_targeted_annotate": false,
+    "parallel_prompt": false,
+    "hostname": null,
+    "use_two_step_annotation": false,
+    "confidence_threshold": 0.3,
+    "use_rag": true,
+    "max_examples_per_requirement": 2,
+    "min_example_confidence": 0.8,
+    "annotated_folder": null,
+    "use_opp_115": false,
+    "root_dir": null
 }
