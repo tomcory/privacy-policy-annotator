@@ -1,0 +1,24 @@
+{
+    "annotations": [
+        {
+            "requirement": "Data Recipients",
+            "value": "third party service providers",
+            "performed": true
+        },
+        {
+            "requirement": "Data Recipients",
+            "value": "credit card processors",
+            "performed": true
+        },
+        {
+            "requirement": "Data Recipients",
+            "value": "shipping agents",
+            "performed": true
+        },
+        {
+            "requirement": "Data Recipients",
+            "value": "business intelligence providers",
+            "performed": true
+        }
+    ]
+}

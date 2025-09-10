@@ -1,0 +1,30 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+        "annotations": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "requirement": {
+                        "type": "string",
+                        "description": "The OPP-115 privacy practice category that is addressed by the annotated phrase."
+                    },
+                    "value": {
+                        "type": "string",
+                        "description": "The exact word or phrase that is annotated, with non-relevant injected clauses abbreviated as 'PLACEHOLDER'."
+                    },
+                    "performed": {
+                        "type": "boolean",
+                        "description": "Indicates whether the phrase addresses the OPP-115 privacy practice category in the positive of negative (e.g. 'we collect X data' vs. 'we do not collect X data')."
+                    }
+                },
+                "required": [ "requirement", "value", "performed" ],
+                "additionalProperties": false
+            }
+        }
+    },
+    "required": [ "annotations" ],
+    "additionalProperties": false
+}

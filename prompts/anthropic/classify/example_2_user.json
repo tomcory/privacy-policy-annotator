@@ -1,0 +1,14 @@
+{
+    "type": "text",
+    "context": [
+        {
+            "text": "Privacy Policy",
+            "type": "h1"
+        },
+        {
+            "text": "Your Rights",
+            "type": "h2"
+        }
+    ],
+    "passage": "You have the right to access and rectify your personal data."
+}

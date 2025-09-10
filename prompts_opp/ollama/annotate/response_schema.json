@@ -1,0 +1,25 @@
+{
+    "type": "object",
+    "properties": {
+        "annotations": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "requirement": {
+                        "type": "string",
+                        "description": "The OPP-115 privacy practice category that is addressed by the annotated phrase."
+                    },
+                    "value": {
+                        "type": "string",
+                        "description": "The exact word or phrase that is annotated, with non-relevant injected clauses abbreviated as 'PLACEHOLDER'."
+                    }
+                },
+                "required": [ "requirement", "value" ],
+                "additionalProperties": false
+            }
+        }
+    },
+    "required": [ "annotations" ],
+    "additionalProperties": false
+}

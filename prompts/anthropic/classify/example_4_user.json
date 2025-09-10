@@ -1,0 +1,14 @@
+{
+    "type": "text",
+    "context": [
+        {
+            "text": "SuperApp Privacy Policy",
+            "type": "h1"
+        },
+        {
+            "text": "Data Recipients",
+            "type": "h2"
+        }
+    ],
+    "passage": "Please see below for more information."
+}

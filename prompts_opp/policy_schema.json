@@ -1,0 +1,61 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "array",
+    "items": {
+        "type": "object",
+        "properties": {
+            "type": {
+                "type": "string",
+                "enum": ["headline", "list_item", "table_cell", "table_header", "text"],
+                "description": "The type of the passage as defined by the original document's DOM structure."
+            },
+            "context": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "text": {
+                            "type": "string",
+                            "description": "The full text of the context element."
+                        },
+                        "type": {
+                            "type": "string",
+                            "enum": ["div", "h1", "h2", "h3", "h4", "h5", "h6", "li", "p", "td", "th"],
+                            "description": "The HTML tag type of the context element."
+                        }
+                    },
+                    "required": ["text", "type"]
+                },
+                "description": "A list of relevant context elements (passages) providing contextual information about the passage."
+            },
+            "passage": {
+                "type": "string",
+                "description": "The full text of the passage."
+            },
+            "annotations": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "requirement": {
+                            "type": "string",
+                            "description": "The transparency requirement (ref. GDPR Art. 13 and 14) that is addressed by the annotated phrase."
+                        },
+                        "value": {
+                            "type": "string",
+                            "description": "The exact phrase that is annotated."
+                        },
+                        "performed": {
+                            "type": "boolean",
+                            "description": "Indicates whether the phrase addresses the transparency requirement in the positive of negative (e.g. 'we collect X data' vs 'we do not collect X data')."
+                        }
+                    },
+                    "required": ["requirement", "value", "performed"],
+                    "description": "A list of annotations identifying and classifying relevant transparency information within the passage."
+                }
+            }
+        },
+        "required": ["type", "context", "passage", "annotations"],
+        "description": "Represents a passage of a privacy policy as delineated by the original document's DOM structure."
+    }
+}

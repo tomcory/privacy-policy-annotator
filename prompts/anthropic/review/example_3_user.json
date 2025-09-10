@@ -1,0 +1,41 @@
+{
+    "type": "text",
+    "context": [
+        {
+            "text": "Privacy Policy for N:0W Goals App",
+            "type": "h1"
+        },
+        {
+            "text": "Personal Information we collect:",
+            "type": "h2"
+        }
+    ],
+    "passage": "When you sign up for our service, we collect your name and email address, but not your age. Contact us for more information.",
+    "annotations": [
+        {
+            "requirement": "Data Categories",
+            "value": "Personal Information",
+            "performed": true
+        },
+        {
+            "requirement": "Data Categories",
+            "value": "your name",
+            "performed": true
+        },
+        {
+            "requirement": "Data Categories",
+            "value": "email address",
+            "performed": true
+        },
+        {
+            "requirement": "Data Categories",
+            "value": "age",
+            "performed": false
+        },
+        {
+            "requirement": "Controller Contact",
+            "value": "Contact us",
+            "performed": true
+        }
+    ]
+}

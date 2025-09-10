@@ -1,0 +1,17 @@
+{
+    "passage": "3. You may unsubscribe to any of our online e-mail updates or newsletters by following the unsubscribe instructions in the body of any e-mail message.",
+    "annotations": [
+        {
+            "requirement": "User Choice/Control",
+            "value": "following the unsubscribe instructions in the body of any e-mail message."
+        },
+        {
+            "requirement": "User Choice/Control",
+            "value": "e-mail updates or newsletter"
+        },
+        {
+            "requirement": "User Choice/Control",
+            "value": "e-mail updates or newsletters"
+        }
+    ]
+}
