@@ -1,5 +1,3 @@
-import json
-
 from bs4 import BeautifulSoup, NavigableString, Tag, PageElement
 
 from src import util
@@ -73,9 +71,15 @@ class Parser(PipelineStep):
         try:
             self.html_content = util.read_from_file(f"{self.in_folder}/{pkg}.html")
             if len(self.html_content) > 0:
-                parsed_structure = self._parse()
-                output = json.dumps(parsed_structure, indent=2)
-                util.write_to_file(f"{self.out_folder}/{pkg}.json", output)
+                # Clear any previous blocks
+                self.blocks = []
+                
+                # Parse and write each block individually as JSONL
+                soup = BeautifulSoup(self.html_content, 'html.parser')
+                self.__handle_children(soup)
+                
+                # Write all blocks as JSONL
+                util.write_jsonl_file(f"{self.out_folder}/{pkg}.jsonl", self.blocks)
             else:
                 #TODO: handle empty HTML
                 pass
@@ -84,12 +88,6 @@ class Parser(PipelineStep):
 
     async def prepare_batch(self, pkg: str):
         pass
-
-    def _parse(self):
-        if not self.blocks:
-            soup = BeautifulSoup(self.html_content, 'html.parser')
-            self.__handle_children(soup)
-        return self.blocks
 
     def __handle_children(self, element):
         for child in element.contents:

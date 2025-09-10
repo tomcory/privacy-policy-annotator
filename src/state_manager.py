@@ -118,6 +118,10 @@ class BaseStateManager:
         )
         await self.broadcast_state()
 
+    async def start(self):
+        """Start the state manager and prepare for state updates."""
+        raise NotImplementedError("Subclasses must implement this method.")
+
     async def broadcast_state(self):
         """Broadcast the current state."""
         raise NotImplementedError("Subclasses must implement this method.")
@@ -135,6 +139,9 @@ class WebSocketStateManager(BaseStateManager):
         self.connections = set()  # Set of connected WebSocket clients
         self.last_broadcast_time = 0  # Timestamp of the last broadcast
         self.minor_update_interval = 1.0  # Minimum time between minor updates in seconds
+
+    async def start(self):
+        pass
 
     async def broadcast_state(self):
         """Broadcast the current state, with rate limiting for minor updates."""
@@ -200,35 +207,72 @@ class ConsoleStateManager(BaseStateManager):
         self.pbar = None  # Progress bar instance
         self.last_step = None  # Track last step for step change detection
         self.last_file = None  # Track last file for file change detection
+        self._broadcast_task = None
+
+    async def _periodic_broadcast_loop(self):
+        try:
+            while True:
+                await self.update_state()
+                await asyncio.sleep(1)
+        except asyncio.CancelledError:
+            pass
+
+    async def start(self):
+        self._broadcast_task = asyncio.create_task(self._periodic_broadcast_loop())
 
     async def broadcast_state(self):
         """Display the current state in the console with appropriate formatting."""
 
-        # Update or create progress bar for running steps with multiple files
+        # Update or create progress bar for running steps
         if (self.state.status == PipelineStatus.RUNNING and
                 self.state.total_files >= 1):
 
-            if self.pbar is None or self.pbar.total != self.state.total_files:
-                # Close existing bar if total files changed
-                if self.pbar is not None:
-                    self.pbar.close()
+            # Handle single file vs multiple files differently
+            if self.state.total_files == 1:
+                # For single file, show in-file progress
+                if self.pbar is None or self.pbar.total != 100:
+                    # Close existing bar if switching to single file mode
+                    if self.pbar is not None:
+                        self.pbar.close()
 
-                # Create new progress bar
-                self.pbar = tqdm(
-                    total=self.state.total_files,
-                    desc=f"{self.state.current_step}: {self.state.current_file} ({self.state.file_progress:.2%})",
-                    unit="file",
-                    ncols=160,
-                    bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]'
-                )
+                    # Create new progress bar for in-file progress
+                    self.pbar = tqdm(
+                        total=100,
+                        desc=f"{self.state.current_step}: {self.state.current_file}",
+                        unit="%",
+                        ncols=160,
+                        bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt}% [{elapsed}<{remaining}]'
+                    )
 
-            # Update progress bar position
-            current_position = int(self.state.step_progress * self.state.total_files)
-            self.pbar.n = current_position
-            if self.state.current_file:
-                self.pbar.set_description(
-                    f"{self.state.current_step}: {self.state.current_file} ({self.state.file_progress:.2%})")
-            self.pbar.refresh()
+                # Update progress bar position based on file_progress
+                current_position = int(self.state.file_progress * 100)
+                self.pbar.n = current_position
+                if self.state.current_file:
+                    self.pbar.set_description(f"{self.state.current_step}: {self.state.current_file} ({self.state.file_progress:.3%})")
+                self.pbar.refresh()
+            else:
+                # For multiple files, show file-by-file progress (existing behavior)
+                if self.pbar is None or self.pbar.total != self.state.total_files:
+                    # Close existing bar if total files changed
+                    if self.pbar is not None:
+                        self.pbar.close()
+
+                    # Create new progress bar
+                    self.pbar = tqdm(
+                        total=self.state.total_files,
+                        desc=f"{self.state.current_step}: {self.state.current_file} ({self.state.file_progress:.2%})",
+                        unit="file",
+                        ncols=160,
+                        bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]'
+                    )
+
+                # Update progress bar position
+                current_position = int(self.state.step_progress * self.state.total_files)
+                self.pbar.n = current_position
+                if self.state.current_file:
+                    self.pbar.set_description(
+                        f"{self.state.current_step}: {self.state.current_file} ({self.state.file_progress:.3%})")
+                self.pbar.refresh()
         
         # Handle status changes
         if self.state.status != self.previous_state.status:
@@ -287,6 +331,12 @@ class ConsoleStateManager(BaseStateManager):
 
     async def _abort(self):
         """Abort the pipeline and close the progress bar."""
+        if self._broadcast_task:
+            self._broadcast_task.cancel()
+            try:
+                await self._broadcast_task
+            except asyncio.CancelledError:
+                pass
         if self.pbar is not None:
             self.pbar.close()
             self.pbar = None

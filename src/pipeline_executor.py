@@ -12,10 +12,15 @@ from src.llm_connectors.api_deepseek import ApiDeepSeek
 from src.llm_connectors.api_ollama import ApiOllama
 from src.llm_connectors.api_openai import ApiOpenAI
 from src.pipeline_steps.annotator import Annotator
+from src.pipeline_steps.reviewer import Reviewer
+from src.pipeline_steps.metadata_crawler import MetadataCrawler
+from src.pipeline_steps.policy_crawler import PolicyCrawler
 from src.pipeline_steps.cleaner import Cleaner
+from src.pipeline_steps.llm_classifier import LLMClassifier
 from src.pipeline_steps.detector import Detector
 from src.pipeline_steps.parser import Parser
 from src.pipeline_steps.pipeline_step import PipelineStep
+from src.pipeline_steps.targeted_annotator import TargetedAnnotator
 from src.state_manager import PipelineStatus, BaseStateManager
 
 
@@ -23,93 +28,125 @@ class PipelineExecutor:
     def __init__(
             self,
             run_id: str,
+            pkg: str,
             default_model: str,
             models: dict,
-            skip_clean: bool,
-            skip_detect: bool,
-            skip_parse: bool,
-            skip_annotate: bool,
-            skip_review: bool,
-            batch_detect: bool,
-            batch_annotate: bool ,
-            batch_review: bool,
-            parallel_prompt: bool,
-            hostname: str,
-            state_manager: BaseStateManager
+            crawl_retries: int = 2,
+            skip_crawl: bool = False,
+            skip_clean: bool = False,
+            skip_detect: bool = False,
+            skip_parse: bool = False,
+            skip_annotate: bool = False,
+            skip_review: bool = False,
+            skip_classify: bool = False,
+            skip_targeted_annotate: bool = False,
+            batch_detect: bool = False,
+            batch_annotate: bool = False,
+            batch_review: bool = False,
+            batch_classify: bool = False,
+            batch_targeted_annotate: bool = False,
+            parallel_prompt: bool = False,
+            hostname: str = None,
+            state_manager: BaseStateManager = None,
+            use_two_step_annotation: bool = False,
+            confidence_threshold: float = 0.3,
+            use_rag: bool = True,
+            max_examples_per_requirement: int = 2,
+            min_example_confidence: float = 0.8,
+            annotated_folder: str = None,
+            use_opp_115: bool = False,
+            root_dir: str = "./output/"
     ):
-        if not run_id:
-            raise ValueError("No run_id provided")
+        if not run_id and not pkg:
+            raise ValueError("No run_id or pkg provided")
+        
+        if not run_id and pkg:
+            run_id = pkg
 
         if not default_model and not models:
             raise ValueError("Neither default model nor step-specific models provided")
 
         self.run_id = run_id
+        self.pkg = pkg
         self.default_model = default_model
         self.models = models
+        self.crawl_retries = crawl_retries
+
+        # parse pipeline step flags
+        self.skip_crawl = skip_crawl
+        self.skip_clean = skip_clean
+        self.skip_detect = skip_detect
+        self.skip_parse = skip_parse
+        self.skip_annotate = skip_annotate
+        self.skip_review = skip_review
+        self.skip_classify = skip_classify
+        self.skip_targeted_annotate = skip_targeted_annotate
+        self.batch_detect = batch_detect
+        self.batch_annotate = batch_annotate
+        self.batch_review = batch_review
+        self.batch_classify = batch_classify
+        self.batch_targeted_annotate = batch_targeted_annotate
+
         self.parallel_prompt = parallel_prompt
         self.hostname = hostname
         self.state_manager = state_manager
+        self.use_two_step_annotation = use_two_step_annotation
+        self.confidence_threshold = confidence_threshold
+        self.use_rag = use_rag
+        self.max_examples_per_requirement = max_examples_per_requirement
+        self.min_example_confidence = min_example_confidence
+        self.annotated_folder = annotated_folder
+        self.use_opp_115 = use_opp_115
 
-        self.root_folder = f"../../output/{self.run_id}"
+        # create the output folders
+        self.root_folder = os.path.join(self.root_dir, self.run_id)
         self.policies_folder = os.path.join(self.root_folder, "policies")
         self.batch_folder = os.path.join(self.root_folder, "batch")
         self.log_folder = os.path.join(self.root_folder, "log")
 
+        # create the error log file
         self.error_log_file = os.path.join(self.root_folder, "error.txt")
 
+        # create the batch filenames
         self.batch_input_filename = "batch_input.json"
         self.batch_metadata_filename = "batch_metadata.json"
         self.batch_results_filename = "batch_results.json"
         self.batch_errors_filename = "batch_errors.json"
 
+        self.setup_performed = False
+        self.pipeline_steps = []
+
+
+    async def setup(self):
+        """Setup the pipeline steps"""
+        if self.setup_performed:
+            return
+        else:
+            self.setup_performed = True
+
+        # start the state manager
+        await self.state_manager.start()
+        
         # prepare the output folders for the given run id
         util.prepare_output(self.run_id, overwrite=False)
 
-        # Pipeline setup
-        self.pipeline_steps = [
-            Cleaner(
-                run_id=self.run_id,
-                state_manager=self.state_manager,
-                in_folder=os.path.join(self.policies_folder, "html"),
-                out_folder=os.path.join(self.policies_folder, "cleaned"),
-                skip=skip_clean
+        # if a single package is provided, write it to the pkgs folder for the crawler to find it
+        if self.pkg:
+            util.write_to_file(os.path.join(self.policies_folder, "pkgs", f"{self.pkg}.txt"), self.pkg)
 
-            ),
-            Detector(
-                run_id=self.run_id,
-                state_manager=self.state_manager,
-                in_folder=os.path.join(self.policies_folder, "cleaned"),
-                out_folder=os.path.join(self.policies_folder, "detected"),
-                skip=skip_detect,
-                is_batch_step=batch_detect,
-                parallel_prompt=parallel_prompt
-            ),
-            Parser(
-                run_id=self.run_id,
-                state_manager=self.state_manager,
-                in_folder=os.path.join(self.policies_folder, "detected"),
-                out_folder=os.path.join(self.policies_folder, "json"),
-                skip=skip_parse
-            ),
-            Annotator(
-                run_id=self.run_id,
-                state_manager=self.state_manager,
-                in_folder=os.path.join(self.policies_folder, "json"),
-                out_folder=os.path.join(self.policies_folder, "annotated"),
-                skip=skip_annotate,
-                is_batch_step=batch_annotate,
-                parallel_prompt=parallel_prompt,
-            )
-        ]
+            # Pipeline setup
+            await self._setup_pipeline_steps()
+            await self._setup_pipeline_clients()
 
-        # count all non-skipped pipeline steps
-        self.pipeline_length = len([s for s in self.pipeline_steps if not s.skip])
+            # count all non-skipped pipeline steps
+            self.pipeline_length = len([s for s in self.pipeline_steps if not s.skip])
 
     async def execute(self):
+        
         """Execute the pipeline asynchronously, updating state after each step."""
 
-        # Model selection and client setup
-        await self._init_api_clients()
+        # setup the pipeline steps (will only execute once, so we can call it as many times as we want)
+        await self.setup()
 
         # iterate over the processing steps and execute the corresponding function for each package
         for step_index, step in enumerate([s for s in self.pipeline_steps if not s.skip]):
@@ -151,6 +188,17 @@ class PipelineExecutor:
                 current_file=""
             )
 
+        total_cost = sum(step.client.total_cost for step in self.pipeline_steps if step.client)
+        print("--------------------------------")
+        print(f"Total cost: {total_cost}")
+        print("--------------------------------")
+
+        # close clients after the pipeline completes
+        for step in self.pipeline_steps:
+            if step.client:
+                step.client.close()
+
+        # update the state
         await self.state_manager.update_state(
             status=PipelineStatus.COMPLETED,
             current_step="",
@@ -162,7 +210,113 @@ class PipelineExecutor:
             message="Pipeline completed successfully"
         )
 
-    async def _init_api_clients(self):
+    async def _setup_pipeline_steps(self):
+        """Setup the pipeline steps"""
+        self.pipeline_steps = []
+        self.pipeline_steps = [
+            MetadataCrawler(
+                run_id=self.run_id,
+                state_manager=self.state_manager,
+                in_folder=os.path.join(self.policies_folder, "pkgs"),
+                out_folder=os.path.join(self.policies_folder, "metadata"),
+                skip=self.skip_crawl
+            ),
+            PolicyCrawler(
+                run_id=self.run_id,
+                state_manager=self.state_manager,
+                in_folder=os.path.join(self.policies_folder, "metadata"),
+                out_folder=os.path.join(self.policies_folder, "html"),
+                skip=self.skip_crawl
+            ),
+            Cleaner(
+                run_id=self.run_id,
+                state_manager=self.state_manager,
+                in_folder=os.path.join(self.policies_folder, "html"),
+                out_folder=os.path.join(self.policies_folder, "cleaned"),
+                skip=self.skip_clean
+            ),
+            Detector(
+                run_id=self.run_id,
+                state_manager=self.state_manager,
+                in_folder=os.path.join(self.policies_folder, "cleaned"),
+                out_folder=os.path.join(self.policies_folder, "detected"),
+                skip=self.skip_detect,
+                is_batch_step=self.batch_detect,
+                parallel_prompt=self.parallel_prompt
+            ),
+            Parser(
+                run_id=self.run_id,
+                state_manager=self.state_manager,
+                in_folder=os.path.join(self.policies_folder, "detected"),
+                out_folder=os.path.join(self.policies_folder, "json"),
+                skip=self.skip_parse
+            )
+        ]
+
+        if self.use_two_step_annotation:
+            self.pipeline_steps.append(
+                LLMClassifier(
+                    run_id=self.run_id,
+                    state_manager=self.state_manager,
+                    in_folder=os.path.join(self.policies_folder, "json"),
+                    out_folder=os.path.join(self.policies_folder, "classified"),
+                    skip=self.skip_classify,
+                    is_batch_step=self.batch_classify,
+                    parallel_prompt=self.parallel_prompt,
+                    use_opp_115=self.use_opp_115
+                )
+            )
+            self.pipeline_steps.append(
+                TargetedAnnotator(
+                        run_id=self.run_id,
+                        state_manager=self.state_manager,
+                        in_folder=os.path.join(self.policies_folder, "classified"),
+                        out_folder=os.path.join(self.policies_folder, "annotated"),
+                        skip=self.skip_annotate,
+                        is_batch_step=self.batch_targeted_annotate,
+                        parallel_prompt=self.parallel_prompt,
+                        confidence_threshold=self.confidence_threshold,
+                        use_rag=True,
+                        max_examples_per_requirement=self.max_examples_per_requirement,
+                        min_example_confidence=self.min_example_confidence,
+                        use_opp_115=self.use_opp_115
+                )
+            )
+        
+        else:
+            self.pipeline_steps.append(
+                Annotator(
+                        run_id=self.run_id,
+                        state_manager=self.state_manager,
+                        in_folder=os.path.join(self.policies_folder, "json"),
+                        out_folder=os.path.join(self.policies_folder, "annotated"),
+                        skip=self.skip_annotate,
+                        is_batch_step=self.batch_annotate,
+                        parallel_prompt=self.parallel_prompt,
+                        use_opp_115=self.use_opp_115
+                    )   
+                )
+
+        self.pipeline_steps.append(
+            Reviewer(
+                run_id=self.run_id,
+                state_manager=self.state_manager,
+                in_folder=os.path.join(self.policies_folder, "annotated"),
+                out_folder=os.path.join(self.policies_folder, "reviewed"),
+                skip=self.skip_review,
+                is_batch_step=self.batch_review,
+                parallel_prompt=self.parallel_prompt,
+                use_rag=True,
+                max_examples_per_requirement=self.max_examples_per_requirement,
+                min_example_confidence=self.min_example_confidence,
+                use_opp_115=self.use_opp_115
+            )
+        )
+        
+    async def _setup_pipeline_clients(self):
+        """Setup the pipeline clients"""
+        
+        # Model selection and client setup
         self.clients: dict[str, Optional[ApiBase]] = {
             'anthropic': None,
             'deepseek': None,
@@ -218,19 +372,19 @@ class PipelineExecutor:
                 # initialize the API client for the step
                 if selected_model['api'] == 'anthropic':
                     if self.clients['anthropic'] is None:
-                        self.clients['anthropic'] = ApiAnthropic(self.run_id, self.hostname)
+                        self.clients['anthropic'] = ApiAnthropic(self.run_id, self.hostname, use_opp_115=self.use_opp_115)
                     step.client = self.clients['anthropic']
                 elif selected_model['api'] == 'deepseek':
                     if self.clients['deepseek'] is None:
-                        self.clients['deepseek'] = ApiDeepSeek(self.run_id, self.hostname)
+                        self.clients['deepseek'] = ApiDeepSeek(self.run_id, self.hostname, use_opp_115=self.use_opp_115)
                     step.client = self.clients['deepseek']
                 elif selected_model['api'] == 'ollama':
                     if self.clients['ollama'] is None:
-                        self.clients['ollama'] = ApiOllama(self.run_id, self.hostname)
+                        self.clients['ollama'] = ApiOllama(self.run_id, self.hostname, use_opp_115=self.use_opp_115)
                     step.client = self.clients['ollama']
                 elif selected_model['api'] == 'openai':
                     if self.clients['openai'] is None:
-                        self.clients['openai'] = ApiOpenAI(self.run_id, self.hostname)
+                        self.clients['openai'] = ApiOpenAI(self.run_id, self.hostname, use_opp_115=self.use_opp_115)
                     step.client = self.clients['openai']
                 else:
                     await self.state_manager.raise_error(
@@ -256,7 +410,6 @@ class PipelineExecutor:
         try:
             await step.execute(pkg)
         except Exception as e:
-            raise e
             print(f"Error processing package {pkg} in step {step}.")
             print(f"Error: {sys.exc_info()}")
             with open(self.error_log_file, 'a') as error_log_file: #TODO: replace with logger

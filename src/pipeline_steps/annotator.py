@@ -21,7 +21,8 @@ class Annotator(PipelineStep):
             batch_errors_file: str = "batch_errors.jsonl",
             parallel_prompt: bool = False,
             model: str = None,
-            client: ApiBase = None
+            client: ApiBase = None,
+            use_opp_115: bool = False
     ):
         super().__init__(
             run_id=run_id,
@@ -41,13 +42,17 @@ class Annotator(PipelineStep):
             model=model,
             client=client
         )
+        
+        self.use_opp_115 = use_opp_115
 
     async def execute(self, pkg: str):
-        policy = util.load_policy_json(f'{self.in_folder}/{pkg}.json')
+        # Try to load from JSONL first, fallback to JSON for backward compatibility
+        policy = util.load_policy_jsonl(f'{self.in_folder}/{pkg}.jsonl')
+        if policy is None:
+            policy = util.load_policy_json(f'{self.in_folder}/{pkg}.json')
         if policy is None:
             return None
 
-        output = []
         total_cost = 0
         total_time = 0
 
@@ -64,11 +69,17 @@ class Annotator(PipelineStep):
             # iterate over each result and add the annotations to the policy
             for index, result in enumerate(results):
                 try:
-                    policy[index]['annotations'] = json.loads(result)['annotations']
-                except json.JSONDecodeError as e:
+                    annotations = util.parse_llm_json_response(result, expected_key='annotations')
+                    # Correct any hallucinated requirement labels in annotations
+                    corrected_annotations = util.correct_annotations(annotations, use_opp_115=self.use_opp_115)
+                    policy[index]['annotations'] = corrected_annotations
+                except Exception as e:
                     policy[index]['annotations'] = []
-                    await self.state_manager.raise_error(error_message=str(e))
-                output.append(policy[index])
+                    print(f"Error processing annotation result: {str(e)}")
+                    # Don't raise error for individual failures, just log and continue
+            
+            # Write all results as JSONL
+            util.write_jsonl_file(f"{self.out_folder}/{pkg}.jsonl", policy)
         else:
             # iterate over each passage in the policy and annotate it or retrieve the annotation from the batch result
             for index, passage in enumerate(policy):
@@ -93,24 +104,39 @@ class Annotator(PipelineStep):
                 total_cost += cost
                 total_time += time
 
-                # add the annotations to the policy
+                # add the annotations to the passage
                 try:
-                    passage['annotations'] = json.loads(result)['annotations']
-                except json.JSONDecodeError as e:
+                    annotations = util.parse_llm_json_response(result, expected_key='annotations')
+
+                    # remove "Other" from the result
+                    annotations = [annotation for annotation in annotations if annotation['requirement'] != "Other"]
+                    
+                    # Correct any hallucinated requirement labels in annotations
+                    corrected_annotations = util.correct_annotations(annotations, use_opp_115=self.use_opp_115)
+                    passage['annotations'] = corrected_annotations
+
+                    print("--------------------------------")
+                    print(json.dumps(passage))
+                    print("--------------------------------")
+                except Exception as e:
                     passage['annotations'] = []
-                    await self.state_manager.raise_error(error_message=str(e))
-                output.append(passage)
+                    print(f"Error processing annotation result: {str(e)}")
+                    # Don't raise error for individual failures, just log and continue
+                
+                # Append each passage individually to JSONL file
+                util.append_to_file(f"{self.out_folder}/{pkg}.jsonl", json.dumps(passage))
 
         await self.state_manager.update_state(
             file_progress=1,
             message=f"Cost: {total_cost:.2f} USD, Time: {total_time:.2f} seconds"
         )
 
-        util.write_to_file(f"{self.out_folder}/{pkg}.json", json.dumps(output, indent=4))
-
 
     async def prepare_batch(self, pkg: str):
-        policy = util.load_policy_json(f'{self.in_folder}/{pkg}.json')
+        # Try to load from JSONL first, fallback to JSON for backward compatibility
+        policy = util.load_policy_jsonl(f'{self.in_folder}/{pkg}.jsonl')
+        if policy is None:
+            policy = util.load_policy_json(f'{self.in_folder}/{pkg}.json')
         if policy is None:
             return None
 
