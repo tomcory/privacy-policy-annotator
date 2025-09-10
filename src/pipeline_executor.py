@@ -99,6 +99,7 @@ class PipelineExecutor:
         self.use_opp_115 = use_opp_115
 
         # create the output folders
+        self.root_dir = root_dir
         self.root_folder = os.path.join(self.root_dir, self.run_id)
         self.policies_folder = os.path.join(self.root_folder, "policies")
         self.batch_folder = os.path.join(self.root_folder, "batch")
@@ -134,12 +135,12 @@ class PipelineExecutor:
         if self.pkg:
             util.write_to_file(os.path.join(self.policies_folder, "pkgs", f"{self.pkg}.txt"), self.pkg)
 
-            # Pipeline setup
-            await self._setup_pipeline_steps()
-            await self._setup_pipeline_clients()
+        # Pipeline setup
+        await self._setup_pipeline_steps()
+        await self._setup_pipeline_clients()
 
-            # count all non-skipped pipeline steps
-            self.pipeline_length = len([s for s in self.pipeline_steps if not s.skip])
+        # count all non-skipped pipeline steps
+        self.pipeline_length = len([s for s in self.pipeline_steps if not s.skip])
 
     async def execute(self):
         
