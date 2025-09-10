@@ -97,7 +97,8 @@ class ApiAnthropic(ApiBase):
             self,
             run_id: str,
             hostname: str = None,
-            default_model: str = None
+            default_model: str = None,
+            use_opp_115: bool = False
     ):
         super().__init__(
             run_id=run_id,
@@ -107,7 +108,8 @@ class ApiAnthropic(ApiBase):
             default_model=default_model,
             hostname=hostname,
             supports_batch=True,
-            supports_parallel=False
+            supports_parallel=False,
+            use_opp_115=use_opp_115
         )
 
         if self.hostname:
@@ -157,7 +159,8 @@ class ApiAnthropic(ApiBase):
             user_msg=user_msg,
             system_msg=system_msg,
             examples=examples,
-            bundle_system_msg=False
+            bundle_system_msg=False,
+            use_opp_115=self.use_opp_115
         )
 
         completion = self.client.messages.create(
@@ -232,7 +235,7 @@ class ApiAnthropic(ApiBase):
             }
 
             # Write updated metadata back to file
-            with open(metadata_file_path, "w") as f:
+            with open(batch_metadata_file, "w") as f:
                 json.dump(updated_metadata, f, indent=4, default=str)
 
             # Convert Anthropic batch status to unified format
@@ -317,7 +320,7 @@ class ApiAnthropic(ApiBase):
 
         # Load the messages from the prompts folder or use the provided messages
         _, system_msg, response_schema = util.prepare_prompt_messages(
-            api, task, user_msg, system_msg, examples
+            api, task, user_msg, system_msg, examples, use_opp_115=self.use_opp_115
         )
 
         # Format messages for Anthropic API

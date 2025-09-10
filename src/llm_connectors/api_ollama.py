@@ -50,7 +50,34 @@ available_models = {
         'input_price_batch': 0,
         'output_price_batch': 0
     },
+    'gemma3:27b': {
+        'name': 'gemma3:27b',
+        'api': 'ollama',
+        'encoding': 'o200k_base',
+        'input_price': 0,
+        'output_price': 0,
+        'input_price_batch': 0,
+        'output_price_batch': 0
+    },
+    'gemma3n:e4b': {
+        'name': 'gemma3n:e4b',
+        'api': 'ollama',
+        'encoding': 'o200k_base',
+        'input_price': 0,
+        'output_price': 0,
+        'input_price_batch': 0,
+        'output_price_batch': 0
+    },
     'llama3.3:70b': {
+        'name': 'llama3.3:70b',
+        'api': 'ollama',
+        'encoding': 'o200k_base',
+        'input_price': 0,
+        'output_price': 0,
+        'input_price_batch': 0,
+        'output_price_batch': 0
+    },
+    'llama4:16x17b': {
         'name': 'llama3.3:70b',
         'api': 'ollama',
         'encoding': 'o200k_base',
@@ -104,8 +131,8 @@ available_models = {
         'input_price_batch': 0,
         'output_price_batch': 0
     },
-    'gemma3:4b': {
-        'name': 'gemma3:4b',
+    'qwen3:32b': {
+        'name': 'qwen3:32b',
         'api': 'ollama',
         'encoding': 'o200k_base',
         'input_price': 0,
@@ -113,6 +140,15 @@ available_models = {
         'input_price_batch': 0,
         'output_price_batch': 0
     },
+    'qwen3:4b': {
+        'name': 'qwen3:4b',
+        'api': 'ollama',
+        'encoding': 'o200k_base',
+        'input_price': 0,
+        'output_price': 0,
+        'input_price_batch': 0,
+        'output_price_batch': 0
+    }
 }
 
 
@@ -125,7 +161,8 @@ class ApiOllama(ApiBase):
             self,
             run_id: str,
             hostname: str = None,
-            default_model: str = None
+            default_model: str = None,
+            use_opp_115: bool = False
     ):
         super().__init__(
             run_id=run_id,
@@ -135,7 +172,8 @@ class ApiOllama(ApiBase):
             default_model=default_model,
             hostname=hostname,
             supports_batch=False,
-            supports_parallel=False
+            supports_parallel=False,
+            use_opp_115=use_opp_115
         )
 
         # Configure headers with Bearer token if API key is available
@@ -165,8 +203,8 @@ class ApiOllama(ApiBase):
             model: str = None,
             response_format: Literal['text', 'json', 'json_schema'] = 'text',
             json_schema: dict = None,
-            temperature: float = 1.0,
-            max_tokens: int = 2048,
+            temperature: float = 0.5,
+            max_tokens: int = 4096,
             n: int = 1,
             top_p: int = 1,
             top_k: int = None,
@@ -188,11 +226,12 @@ class ApiOllama(ApiBase):
             task=task,
             user_msg=user_msg,
             system_msg=system_msg,
-            examples=examples
+            examples=examples,
+            use_opp_115=self.use_opp_115
         )
 
         response = self.client.chat(
-            model=self.active_model['name'],
+            model=self.active_model,
             messages=messages,
             format=response_schema
         )
@@ -210,7 +249,7 @@ class ApiOllama(ApiBase):
             user_msgs: list[str],
             system_msg: str = None,
             examples: list[tuple[str, str]] = None,
-            model: dict = None,
+            model: str = None,
             response_format: Literal['text', 'json', 'json_schema'] = 'text',
             json_schema: dict = None,
             temperature: float = 1.0,
@@ -237,7 +276,8 @@ class ApiOllama(ApiBase):
             api=api,
             task=task,
             system_msg=system_msg,
-            examples=examples
+            examples=examples,
+            use_opp_115=self.use_opp_115
         )
         print(f'Processing {len(user_msgs)} prompts in parallel...')
 
@@ -261,7 +301,7 @@ class ApiOllama(ApiBase):
             self._prompt_parallel_async(
                 message_lists,
                 response_schema,
-                self.active_model['name']
+                self.active_model
             )
         )
 
@@ -331,25 +371,25 @@ class ApiOllama(ApiBase):
 
         # download the model if necessary
         self.downloaded_models = [model['model'] for model in self.client.list()['models']]
-        if self.active_model['name'] not in self.downloaded_models:
-            print(f'Model downloading model {self.active_model['name']}...')
-            self._pull_model(self.active_model['name'])
+        if self.active_model not in self.downloaded_models:
+            print(f'Model downloading model {self.active_model}...')
+            self._pull_model(self.active_model)
 
-        print(f'Initialising model {self.active_model['name']}...')
+        #print(f'Initialising model {self.active_model}...')
 
         # initialize the model by prompting it with a message
-        self.client.chat(self.active_model['name'], messages=[{'role': 'user', 'content': 'What model are you?'}])
+        self.client.chat(self.active_model, messages=[{'role': 'user', 'content': 'What model are you?'}])
 
-        print(f'Loaded model {self.active_model['name']}.')
+        #print(f'Loaded model {self.active_model}.')
 
     def _unload_model(self):
         if self.active_model is not None:
-            print(f'Unloading model {self.active_model['name']}...')
+            print(f'Unloading model {self.active_model}...')
             try:
-                self.client.chat(self.active_model['name'], [{'role': 'user', 'content': ' '}], keep_alive=0)
-                print(f'Unloaded model {self.active_model['name']}.')
+                self.client.chat(self.active_model, [{'role': 'user', 'content': ' '}], keep_alive=0)
+                print(f'Unloaded model {self.active_model}.')
             except ollama.ResponseError as e:
-                print(f'Failed to unload model {self.active_model['name']}.')
+                print(f'Failed to unload model {self.active_model}.')
                 print(e)
             self.active_model = None
 

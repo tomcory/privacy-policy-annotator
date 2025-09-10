@@ -16,6 +16,7 @@ available_models = {
         'api': 'openai',
         'encoding': 'cl100k_base',
         'input_price': (0.5 / 1000000),
+        'input_price_cached': (0.5 / 1000000),
         'output_price': (1.5 / 1000000),
         'input_price_batch': (0.25 / 1000000),
         'output_price_batch': (0.75 / 1000000)
@@ -25,6 +26,7 @@ available_models = {
         'api': 'openai',
         'encoding': 'cl100k_base',
         'input_price': (30 / 1000000),
+        'input_price_cached': (0.5 / 1000000),
         'output_price': (60 / 1000000),
         'input_price_batch': (15 / 1000000),
         'output_price_batch': (30 / 1000000)
@@ -34,6 +36,7 @@ available_models = {
         'api': 'openai',
         'encoding': 'o200k_base',
         'input_price': (2.5 / 1000000),
+        'input_price_cached': (0.5 / 1000000),
         'output_price': (10 / 1000000),
         'input_price_batch': (1.25 / 1000000),
         'output_price_batch': (5 / 1000000)
@@ -43,9 +46,40 @@ available_models = {
         'api': 'openai',
         'encoding': 'o200k_base',
         'input_price': (0.15 / 1000000),
+        'input_price_cached': (0.15 / 1000000),
         'output_price': (0.6 / 1000000),
         'input_price_batch': (0.075 / 1000000),
         'output_price_batch': (0.3 / 1000000)
+    },
+    'gpt-4.1-2025-04-14': {
+        'name': 'gpt-4.1-2025-04-14',
+        'api': 'openai',
+        'encoding': 'cl100k_base',
+        'input_price': (2 / 1000000),
+        'input_price_cached': (0.5 / 1000000),
+        'output_price': (8 / 1000000),
+        'input_price_batch': (1 / 1000000),
+        'output_price_batch': (4 / 1000000)
+    },
+    'gpt-4.1-mini-2025-04-14': {
+        'name': 'gpt-4.1-mini-2025-04-14',
+        'api': 'openai',
+        'encoding': 'cl100k_base',
+        'input_price': (0.4 / 1000000),
+        'input_price_cached': (0.1 / 1000000),
+        'output_price': (1.6 / 1000000),
+        'input_price_batch': (0.2 / 1000000),
+        'output_price_batch': (0.8 / 1000000)
+    },
+    'gpt-4.1-nano-2025-04-14': {
+        'name': 'gpt-4.1-nano-2025-04-14',
+        'api': 'openai',
+        'encoding': 'cl100k_base',
+        'input_price': (0.1 / 1000000),
+        'input_price_cached': (0.025 / 1000000),
+        'output_price': (0.4 / 1000000),
+        'input_price_batch': (0.05 / 1000000),
+        'output_price_batch': (0.2 / 1000000)
     }
 }
 
@@ -63,7 +97,8 @@ class ApiOpenAI(ApiBase):
             models: dict = None,
             api: str = 'openai',
             api_key_name: str = 'OPENAI_API_KEY',
-            supports_batch: bool = True
+            supports_batch: bool = True,
+            use_opp_115: bool = False
     ):
         if models is None:
             models = available_models
@@ -75,7 +110,8 @@ class ApiOpenAI(ApiBase):
             api_key_name=api_key_name,
             default_model=default_model,
             hostname=hostname,
-            supports_batch=supports_batch
+            supports_batch=supports_batch,
+            use_opp_115=use_opp_115
         )
 
         if self.hostname:
@@ -122,8 +158,12 @@ class ApiOpenAI(ApiBase):
 
         # load the messages from the prompts folder or use the provided messages
         messages, system_msg, response_schema = util.prepare_prompt_messages(
-            self.api, self.active_task, user_msg, system_msg, examples
+            self.api, self.active_task, user_msg, system_msg, examples, use_opp_115=self.use_opp_115
         )
+
+        print("--------------------------------")
+        print(f"messages: {messages}")
+        print("--------------------------------")
 
         # parse the given response format into the correct format for the API call
         parsed_response_format = self._parse_response_format(response_format, response_schema)
@@ -142,6 +182,23 @@ class ApiOpenAI(ApiBase):
             seed=seed,
             timeout=timeout
         )
+
+        print(completion)
+        print("--------------------------------")
+
+        # Get cached tokens from the nested structure, defaulting to 0 if not available
+        cached_tokens = getattr(completion.usage.prompt_tokens_details, 'cached_tokens', 0) if hasattr(completion.usage, 'prompt_tokens_details') else 0
+        input_tokens = completion.usage.prompt_tokens - cached_tokens
+        output_tokens = completion.usage.completion_tokens
+
+        cost = cached_tokens * self.models[self.active_model]['input_price_cached'] + input_tokens * self.models[self.active_model]['input_price'] + output_tokens * self.models[self.active_model]['output_price']
+        self.total_cost += cost
+
+        print(f"Cached tokens: {cached_tokens}")
+        print(f"Input tokens: {input_tokens}")
+        print(f"Output tokens: {output_tokens}")
+        print(f"Cost: {cost}")
+        print("--------------------------------")
 
         try:
             reasoning = completion.choices[0].message.reasoning_content
@@ -250,7 +307,7 @@ class ApiOpenAI(ApiBase):
 
         self.setup_task(task, model)
 
-        messages, system_msg, response_schema = util.prepare_prompt_messages(self.api, self.active_task, user_msg, system_msg, examples)
+        messages, system_msg, response_schema = util.prepare_prompt_messages(self.api, self.active_task, user_msg, system_msg, examples, use_opp_115=self.use_opp_115)
         parsed_response_format = self._parse_response_format(response_format, response_schema)
 
         entry = {

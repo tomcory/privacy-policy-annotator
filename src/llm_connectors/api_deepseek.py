@@ -8,7 +8,7 @@ from src.llm_connectors.api_openai import ApiOpenAI
 api = 'deepseek'
 
 available_models = {
-    'deepseek-r1': {
+    'deepseek-reasoner': {
         'name': 'deepseek-reasoner',
         'api': api,
         'supports_json': False,
@@ -38,9 +38,10 @@ class ApiDeepSeek(ApiOpenAI):
             hostname: str = "https://api.deepseek.com",
             default_model: str = None,
             models: dict = None,
-            api: str = 'openai',
-            api_key_name: str = 'OPENAI_API_KEY',
-            supports_batch: bool = True
+            api: str = 'deepseek',
+            api_key_name: str = 'DEEPSEEK_API_KEY',
+            supports_batch: bool = False,
+            use_opp_115: bool = False
     ):
         if models is None:
             models = available_models
@@ -49,10 +50,11 @@ class ApiDeepSeek(ApiOpenAI):
             run_id=run_id,
             models=models,
             api=api,
-            api_key_name='DEEPSEEK_API_KEY',
+            api_key_name=api_key_name,
             default_model=default_model,
             hostname=hostname,
-            supports_batch=False
+            supports_batch=supports_batch,
+            use_opp_115=use_opp_115
         )
 
     def check_batch_status(
@@ -122,7 +124,7 @@ class ApiDeepSeek(ApiOpenAI):
         pass
 
     def _parse_response_format(self, response_format, json_schema: dict) -> dict:
-        if response_format == 'text' or self.active_model.get('supports_json', False) is False:
+        if response_format == 'text' or self.models[self.active_model].get('supports_json', False) is False:
             parsed_format = {'type': 'text'}
         elif response_format == 'json':
             parsed_format = {'type': 'json_object'}

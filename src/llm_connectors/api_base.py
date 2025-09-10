@@ -45,7 +45,8 @@ class ApiBase(ABC):
             hostname: str = None,
             supports_batch: bool = False,
             supports_parallel: bool = False,
-            supports_custom: bool = False
+            supports_custom: bool = False,
+            use_opp_115: bool = False
     ):
         """
         Initialize the API connector.
@@ -68,6 +69,9 @@ class ApiBase(ABC):
         self.supports_batch = supports_batch
         self.supports_parallel = supports_parallel
         self.supports_custom = supports_custom
+        self.use_opp_115 = use_opp_115
+
+        self.total_cost = 0
 
         if api_key_name is not None:
             self.api_key = os.getenv(api_key_name)
