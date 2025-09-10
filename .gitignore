@@ -5,10 +5,8 @@ venv/
 .env
 output/
 res/
-manual_review/
 *.log
-data/
-sample/
-fixed/
 .DS_Store
 __pycache__/
+.pytest_cache/
+test/
