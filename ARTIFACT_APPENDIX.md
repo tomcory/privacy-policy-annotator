@@ -13,7 +13,7 @@ This artifact relates to the paper "Word-level Annotation of GDPR Transparency C
 
 Authors: Thomas Cory, Wolf Rieder, Julia Krämer, Philip Raschke, Patrick Herbke, and Axel Küpper.
 
-The artifact contains the code of the LLM-based annotation pipeline presented in the paper, as well as the "GDPR Transparency 200" dataset used in the evaluation. The code allows to reproduce the results presented in the paper, and can be used to annotate new privacy policies with GDPR transparency requirements.
+The artifact contains the code of the LLM-based annotation pipeline presented in the paper, as well as the "GDPR Transparency 200" dataset used in the evaluation. The code allows reproducing the results presented in the paper and can be used to annotate new privacy policies regarding GDPR transparency requirements.
 
 ### Security/Privacy Issues and Ethical Concerns
 
