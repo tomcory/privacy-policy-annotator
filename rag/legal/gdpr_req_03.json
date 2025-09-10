@@ -1,0 +1,31 @@
+{
+  "label": "DPO Contact",
+  "gdpr_references": ["Article 13(1)(b)", "Article 14(1)(b)", "Article 37", "Recital 97"],
+  "legal_text": "Article 13(1)(b): The contact details of the data protection officer, where applicable.\n\nArticle 14(1)(b): The contact details of the data protection officer, where applicable.\n\nArticle 37(1): The controller and the processor shall designate a data protection officer in any case where: (a) the processing is carried out by a public authority or body, except for courts acting in their judicial capacity; (b) the core activities of the controller or the processor consist of processing operations which, by virtue of their nature, their scope and/or their purposes, require regular and systematic monitoring of data subjects on a large scale; or (c) the core activities of the controller or the processor consist of processing on a large scale of special categories of data pursuant to Article 9 and personal data relating to criminal convictions and offences referred to in Article 10.\n\nRecital 97: The protection of the rights and freedoms of natural persons with regard to the processing of personal data require that appropriate technical and organisational measures be taken to ensure that the requirements of this Regulation are met. In order to be able to demonstrate compliance with this Regulation, the controller should adopt internal policies and implement measures which meet in particular the principles of data protection by design and data protection by default. Such measures could consist, inter alia, of minimising the processing of personal data, pseudonymising personal data as soon as possible, transparency with regard to the functions and processing of personal data, enabling the data subject to monitor the data processing, enabling the controller to create and improve security features. When developing, designing, selecting and using applications, services and products that are based on the processing of personal data or process personal data to fulfil their task, producers of the products, services and applications should be encouraged to take into account the right to data protection when developing and designing such products, services and applications and, with due regard to the state of the art, to make sure that controllers and processors are able to fulfil their data protection obligations. The principles of data protection by design and by default should also be taken into consideration in the context of public tenders.",
+  "commentary": "The DPO contact information must be provided when a DPO is designated (mandatory for public authorities, large-scale monitoring, or processing of special categories of data). The DPO must be easily accessible and independent. Contact details should include at least an email address, and preferably also a postal address. The DPO should be contactable by both data subjects and supervisory authorities. The EDPB Guidelines on DPOs emphasize that the DPO must be accessible without undue delay and that contact details should be published. The DPO's contact information should be separate from general privacy contact information to ensure independence.",
+  "plain_summary": "When organizations are required to have a Data Protection Officer (DPO), they must provide the DPO's contact information. This applies to public authorities, companies that do large-scale monitoring of people, or those that process sensitive data on a large scale. The DPO must be easy to contact and independent from the organization's management. This gives people a direct way to reach someone who is specifically responsible for data protection compliance.",
+  "examples": [
+    {
+      "policy_snippet": "Our Data Protection Officer can be contacted at: dpo@company.com or by post at: Data Protection Officer, Company Name, 456 Privacy Avenue, Brussels, Belgium, 1000.",
+      "annotation": {
+        "span": "dpo@company.com or by post at: Data Protection Officer, Company Name, 456 Privacy Avenue, Brussels, Belgium, 1000",
+        "label": "DPO Contact"
+      },
+      "explanation": "Provides dedicated DPO contact information with both email and postal address, clearly identifying the DPO as the specific contact for data protection matters."
+    },
+    {
+      "policy_snippet": "For data protection matters, you may contact our Data Protection Officer, Jane Smith, at privacy@company.eu or call +32 2 123 4567.",
+      "annotation": {
+        "span": "privacy@company.eu or call +32 2 123 4567",
+        "label": "DPO Contact"
+      },
+      "explanation": "Provides DPO contact with both email and phone number, and identifies the specific person serving as DPO."
+    }
+  ],
+  "source_references": [
+    {"type": "GDPR", "link": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32016R0679"},
+    {"type": "Guideline", "link": "https://edpb.europa.eu/our-work-tools/our-documents/guidelines/guidelines-data-protection-officers-dpos_en"}
+  ],
+  "last_updated": "2024-01-15",
+  "version": "v1.0"
+} 

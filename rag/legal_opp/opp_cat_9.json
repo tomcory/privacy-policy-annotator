@@ -1,0 +1,5 @@
+{
+  "label": "International and Specific Audiences",
+  "description": "Specific audiences mentioned in the company/organization’s privacy policy, such as children or international users, for which the company/organization may provide special provisions.",
+  "usage": "Apply when the policy has special provisions for specific user groups or international users.\n\nKey attributes to consider:\n- Audience Type (required): Which audience - Californians, Europeans, citizens from other countries, children, other specific groups"
+}

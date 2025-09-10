@@ -1,0 +1,31 @@
+{
+  "label": "Legal Basis for Processing",
+  "gdpr_references": ["Article 13(1)(c)", "Article 14(1)(c)", "Article 6", "Recital 40", "Recital 60"],
+  "legal_text": "Article 13(1)(c): The purposes of the processing for which the personal data are intended as well as the legal basis for the processing.\n\nArticle 14(1)(c): The purposes of the processing for which the personal data are intended as well as the legal basis for the processing.\n\nArticle 6(1): Processing shall be lawful only if and to the extent that at least one of the following applies: (a) the data subject has given consent to the processing of his or her personal data for one or more specific purposes; (b) processing is necessary for the performance of a contract to which the data subject is party or in order to take steps at the request of the data subject prior to entering into a contract; (c) processing is necessary for compliance with a legal obligation to which the controller is subject; (d) processing is necessary in order to protect the vital interests of the data subject or of another natural person; (e) processing is necessary for the performance of a task carried out in the public interest or in the exercise of official authority vested in the controller; (f) processing is necessary for the purposes of the legitimate interests pursued by the controller or by a third party, except where such interests are overridden by the interests or fundamental rights and freedoms of the data subject which require protection of personal data, in particular where the data subject is a child.\n\nRecital 40: In order for processing to be lawful, personal data should be processed on the basis of the consent of the data subject concerned or some other legitimate basis, laid down by law, either in this Regulation or in other Union or Member State law as referred to in this Regulation, including the necessity for compliance with the legal obligation to which the controller is subject or the necessity for the performance of a contract to which the data subject is party or in order to take steps at the request of the data subject prior to entering into a contract.\n\nRecital 60: The principles of fair and transparent processing require that the data subject be informed of the existence of the processing operation and its purposes. The controller should provide the data subject with any further information necessary to ensure fair and transparent processing taking into account the specific circumstances and context in which the personal data are processed. Furthermore, the data subject should be informed of the existence of profiling and the consequences of such profiling. Where the personal data are collected from the data subject, the data subject should also be informed whether he or she is obliged to provide the personal data and of the consequences, where he or she does not provide such data. That information may be provided in combination with standardised icons in order to give in an easily visible, intelligible and clearly legible manner a meaningful overview of the intended processing. Where the icons are presented electronically they should be machine-readable.",
+  "commentary": "The legal basis must be clearly identified for each processing purpose. The six legal bases are: consent, contract performance, legal obligation, vital interests, public interest/official authority, and legitimate interests. The EDPB Guidelines emphasize that the legal basis must be determined before processing begins and cannot be changed retroactively. When relying on legitimate interests, the specific interests must be clearly stated. For consent, it must be freely given, specific, informed, and unambiguous. The legal basis should be explained in a way that data subjects can understand, not just cited by article number. Multiple legal bases may apply to different purposes, and each should be clearly identified.",
+  "plain_summary": "Organizations must explain the legal reason why they are allowed to process personal data. There are six possible legal bases: consent (you agreed), contract (needed to fulfill a contract with you), legal obligation (required by law), vital interests (to protect someone's life), public interest (government function), or legitimate interests (business interests that don't harm your rights). The organization must clearly state which basis applies and explain it in plain language. They can't just say 'Article 6' - they need to explain what it means.",
+  "examples": [
+    {
+      "policy_snippet": "We process your personal data based on the following legal grounds: your consent (for marketing communications), contract performance (to fulfill your orders), and legitimate interests (for fraud prevention and security).",
+      "annotation": {
+        "span": "your consent (for marketing communications), contract performance (to fulfill your orders), and legitimate interests (for fraud prevention and security)",
+        "label": "Legal Basis for Processing"
+      },
+      "explanation": "Clearly identifies multiple legal bases with specific purposes for each, making it easy for data subjects to understand the legal justification for different types of processing."
+    },
+    {
+      "policy_snippet": "The legal basis for processing your data is Article 6(1)(b) - processing is necessary for the performance of our service contract with you, and Article 6(1)(f) - our legitimate interest in providing and improving our services.",
+      "annotation": {
+        "span": "Article 6(1)(b) - processing is necessary for the performance of our service contract with you, and Article 6(1)(f) - our legitimate interest in providing and improving our services",
+        "label": "Legal Basis for Processing"
+      },
+      "explanation": "References specific GDPR articles while also providing plain language explanations of what each legal basis means in practice."
+    }
+  ],
+  "source_references": [
+    {"type": "GDPR", "link": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32016R0679"},
+    {"type": "Guideline", "link": "https://edpb.europa.eu/our-work-tools/our-documents/guidelines/guidelines-legitimate-interests_en"}
+  ],
+  "last_updated": "2024-01-15",
+  "version": "v1.0"
+} 

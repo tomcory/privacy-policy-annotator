@@ -1,0 +1,5 @@
+{
+  "label": "First Party Collection/Use",
+  "description": "Privacy practice describing data collection or data use by the company/organization owning the website or mobile app.",
+  "usage": "Apply when the privacy policy describes how the company/organization itself collects, tracks, or uses user data. This covers the most common privacy practices where the website/app owner directly handles user information.\n\nKey attributes to consider:\n- Action First-Party (required): How they collect data - from their website, mobile app, tracking across other sites, receiving from affiliates, or third parties\n- Personal Information Type (required): What type of data - contact info, financial data, location, online activities, user profiles, etc.\n- Purpose (required): Why they collect it - basic services, advertising, marketing, analytics, personalization, security, legal compliance\n- Collection Mode (optional): Whether collection is explicit (user provides) or implicit (automatic)\n- User Type (optional): Whether it applies to users with or without accounts\n- Choice Type (optional): What control options users have - opt-in, opt-out, privacy controls"
+}

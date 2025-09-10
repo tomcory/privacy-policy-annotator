@@ -1,0 +1,142 @@
+{
+  "database_info": {
+    "title": "OPP-115 Privacy Practice Database for RAG-Enhanced Annotation",
+    "description": "A structured, label-specific database of privacy practice background material for OPP-115 annotation pipeline",
+    "version": "v1.0",
+    "last_updated": "2024-01-15",
+    "total_categories": 9,
+    "coverage": "Complete coverage of OPP-115 privacy practice categories for policy annotation"
+  },
+  "categories_overview": [
+    {
+      "category_number": 1,
+      "label": "First Party Collection/Use",
+      "file": "opp_cat_1.json",
+      "description": "Privacy practice describing data collection or data use by the company/organization owning the website or mobile app",
+      "key_attributes": [
+        "Action First-Party (required)",
+        "Personal Information Type (required)", 
+        "Purpose (required)",
+        "Collection Mode (optional)",
+        "User Type (optional)",
+        "Choice Type (optional)"
+      ]
+    },
+    {
+      "category_number": 2,
+      "label": "Third Party Sharing/Collection",
+      "file": "opp_cat_2.json",
+      "description": "Privacy practice describing data sharing with third parties or data collection by third parties",
+      "key_attributes": [
+        "Third Party Entity (required)",
+        "Action Third Party (required)",
+        "Personal Information Type (required)",
+        "Purpose (required)",
+        "Identifiability (optional)",
+        "User Type (optional)",
+        "Choice Type (optional)"
+      ]
+    },
+    {
+      "category_number": 3,
+      "label": "User Choice/Control",
+      "file": "opp_cat_3.json",
+      "description": "Practice that describes general choices and control options available to users",
+      "key_attributes": [
+        "Choice Type (required)",
+        "Choice Scope (required)",
+        "Personal Information Type (required)",
+        "Purpose (required)",
+        "User Type (optional)"
+      ]
+    },
+    {
+      "category_number": 4,
+      "label": "User Access, Edit and Deletion",
+      "file": "opp_cat_4.json",
+      "description": "Privacy practice that allows users to access, edit or delete the data that the company/organization has about them",
+      "key_attributes": [
+        "Access Type (required)",
+        "Access Scope (required)",
+        "User Type (optional)"
+      ]
+    },
+    {
+      "category_number": 5,
+      "label": "Data Retention",
+      "file": "opp_cat_5.json",
+      "description": "Privacy practice specifying the retention period for collected user information",
+      "key_attributes": [
+        "Retention Period (required)",
+        "Retention Purpose (required)",
+        "Personal Information Type (required)"
+      ]
+    },
+    {
+      "category_number": 6,
+      "label": "Data Security",
+      "file": "opp_cat_6.json",
+      "description": "Practice that describes how users' information is secured and protected",
+      "key_attributes": [
+        "Security Measure (required)"
+      ]
+    },
+    {
+      "category_number": 7,
+      "label": "Policy Change",
+      "file": "opp_cat_7.json",
+      "description": "The company/organization's practices concerning if and how users will be informed of changes to its privacy policy",
+      "key_attributes": [
+        "Change Type (required)",
+        "Notification Type (required)",
+        "User Choice (required)"
+      ]
+    },
+    {
+      "category_number": 8,
+      "label": "Do Not Track",
+      "file": "opp_cat_8.json",
+      "description": "Practices that explain if and how Do Not Track signals (DNT) for online tracking and advertising are honored",
+      "key_attributes": [
+        "Do Not Track policy (required)"
+      ]
+    },
+    {
+      "category_number": 9,
+      "label": "International and Specific Audiences",
+      "file": "opp_cat_9.json",
+      "description": "Specific audiences mentioned in the company/organization's privacy policy for which special provisions may apply",
+      "key_attributes": [
+        "Audience Type (required)"
+      ]
+    }
+  ],
+  "database_structure": {
+    "format": "JSON",
+    "fields_per_entry": [
+      "label",
+      "description", 
+      "usage"
+    ],
+    "annotation_approach": "OPP-115 focuses on identifying privacy practices within policy text rather than legal compliance requirements"
+  },
+  "usage_guidelines": {
+    "rag_integration": "This database is designed for integration with retrieval-augmented generation systems for OPP-115 privacy practice annotation",
+    "search_functionality": "Entries can be searched by category label, description, or usage guidelines",
+    "annotation_focus": "Focus on identifying specific privacy practices and their attributes rather than legal compliance",
+    "attribute_requirements": "Each category has required and optional attributes that should be identified during annotation"
+  },
+  "annotation_scheme_background": {
+    "scheme_name": "OPP-115",
+    "origin": "Privacy policy annotation scheme developed for analyzing privacy practices",
+    "scope": "Covers 9 major categories of privacy practices found in privacy policies",
+    "approach": "Practice-based rather than regulation-based annotation",
+    "applicability": "Broadly applicable to privacy policies across different jurisdictions and industries"
+  },
+  "category_groupings": {
+    "data_practices": [1, 2],
+    "user_rights": [3, 4],
+    "data_management": [5, 6],
+    "policy_administration": [7, 8, 9]
+  }
+} 

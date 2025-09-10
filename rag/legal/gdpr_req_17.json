@@ -1,0 +1,31 @@
+{
+  "label": "Right to Restrict",
+  "gdpr_references": ["Article 13(2)(b)", "Article 14(2)(c)", "Article 18", "Recital 67"],
+  "legal_text": "Article 13(2)(b): The existence of the right to request from the controller access to and rectification or erasure of personal data or restriction of processing concerning the data subject or to object to such processing and the existence of the right to data portability.\n\nArticle 14(2)(c): The existence of the right to request from the controller access to and rectification or erasure of personal data or restriction of processing concerning the data subject or to object to such processing and the existence of the right to data portability.\n\nArticle 18(1): The data subject shall have the right to obtain from the controller restriction of processing where one of the following applies: (a) the accuracy of the personal data is contested by the data subject, for a period enabling the controller to verify the accuracy of the personal data; (b) the processing is unlawful and the data subject opposes the erasure of the personal data and requests the restriction of their use instead; (c) the controller no longer needs the personal data for the purposes of the processing, but they are required by the data subject for the establishment, exercise or defence of legal claims; (d) the data subject has objected to processing pursuant to Article 21(1) pending the verification whether the legitimate grounds of the controller override those of the data subject.\n\nRecital 67: Methods by which to restrict the processing of personal data could include, inter alia, temporarily moving the selected data to another processing system, making the selected personal data unavailable to users, or temporarily removing published data from a website. In automated filing systems, the restriction of processing should in principle be ensured by technical means in such a manner that the personal data are not subject to further processing operations and cannot be changed. The fact that the processing of personal data is restricted should be clearly indicated in the system.",
+  "commentary": "The right to restriction allows data subjects to limit how their personal data is processed in specific circumstances. This is different from deletion - the data remains but processing is limited. The EDPB Guidelines emphasize that restriction means the data can only be stored and used for very limited purposes (like legal claims). The right applies when data accuracy is contested, processing is unlawful but erasure is opposed, data is no longer needed but required for legal claims, or when an objection to processing is being considered. Controllers must inform data subjects before lifting a restriction and notify any recipients about the restriction. This right provides a middle ground between full processing and complete erasure.",
+  "plain_summary": "People have the right to ask organizations to limit how they use their personal data in certain situations. This means the organization can keep the data but can only use it in very limited ways. This right applies when: the person disputes the accuracy of the data, the processing is illegal but they don't want the data deleted, the organization no longer needs the data but the person needs it for legal reasons, or when the person has objected to processing and the organization is considering their objection. This is different from deletion - the data stays but can't be used for most purposes.",
+  "examples": [
+    {
+      "policy_snippet": "You have the right to request restriction of processing of your personal data in certain circumstances, such as when you contest the accuracy of the data, when processing is unlawful but you oppose erasure, or when you need the data for legal claims. During restriction, we will only store your data and use it for limited purposes.",
+      "annotation": {
+        "span": "You have the right to request restriction of processing of your personal data in certain circumstances, such as when you contest the accuracy of the data, when processing is unlawful but you oppose erasure, or when you need the data for legal claims",
+        "label": "Right to Restrict"
+      },
+      "explanation": "Explains the right to restriction and the specific circumstances when it applies, along with what happens during restriction."
+    },
+    {
+      "policy_snippet": "Under GDPR Article 18, you may request restriction of processing when: you dispute data accuracy (while we verify), processing is unlawful but you oppose deletion, we no longer need the data but you need it for legal claims, or you have objected to processing (while we assess your objection).",
+      "annotation": {
+        "span": "you may request restriction of processing when: you dispute data accuracy (while we verify), processing is unlawful but you oppose deletion, we no longer need the data but you need it for legal claims, or you have objected to processing (while we assess your objection)",
+        "label": "Right to Restrict"
+      },
+      "explanation": "References the GDPR article and clearly explains all four circumstances when the right to restriction applies."
+    }
+  ],
+  "source_references": [
+    {"type": "GDPR", "link": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32016R0679"},
+    {"type": "Guideline", "link": "https://edpb.europa.eu/our-work-tools/our-documents/guidelines/guidelines-right-restriction_en"}
+  ],
+  "last_updated": "2024-01-15",
+  "version": "v1.0"
+} 

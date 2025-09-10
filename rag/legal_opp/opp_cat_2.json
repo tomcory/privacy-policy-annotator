@@ -1,0 +1,5 @@
+{
+  "label": "Third Party Sharing/Collection",
+  "description": "Privacy practice describing data sharing with third parties or data collection by third parties. A third party is a company/organization other than the first party  company/organization that owns the website or mobile app.",
+  "usage": "Apply when the policy describes sharing user data with other companies/organizations or when third parties collect data through the website/app.\n\nKey attributes to consider:\n- Third Party Entity (required): Who the third party is - unnamed partners, named companies, affiliates, other users, or public\n- Action Third Party (required): How third parties get data - receiving from the company, collecting directly, tracking, or seeing public info\n- Personal Information Type (required): What data is shared/collected - same types as first party\n- Purpose (required): Why third parties use the data - advertising, analytics, services, etc.\n- Identifiability (optional): Whether data is identifiable or anonymized\n- User Type (optional): Applies to users with/without accounts\n- Choice Type (optional): User control options for third party sharing"
+}

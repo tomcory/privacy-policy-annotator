@@ -1,0 +1,31 @@
+{
+  "label": "Data Categories",
+  "gdpr_references": ["Article 14(1)(d)", "Recital 60", "Recital 61"],
+  "legal_text": "Article 14(1)(d): The categories of personal data concerned.\n\nRecital 60: The principles of fair and transparent processing require that the data subject be informed of the existence of the processing operation and its purposes. The controller should provide the data subject with any further information necessary to ensure fair and transparent processing taking into account the specific circumstances and context in which the personal data are processed. Furthermore, the data subject should be informed of the existence of profiling and the consequences of such profiling. Where the personal data are collected from the data subject, the data subject should also be informed whether he or she is obliged to provide the personal data and of the consequences, where he or she does not provide such data. That information may be provided in combination with standardised icons in order to give in an easily visible, intelligible and clearly legible manner a meaningful overview of the intended processing. Where the icons are presented electronically they should be machine-readable.\n\nRecital 61: The information in relation to the processing of personal data relating to the data subject should be given to them at the time of collection from the data subject, or, where the personal data are collected from another source, within a reasonable period after obtaining the personal data, depending on the circumstances of the case. Where personal data can be legitimately disclosed to another recipient, the data subject should be informed when the personal data are first disclosed to the recipient. Where the controller intends to process the personal data for a purpose other than that for which they were collected, the controller should provide the data subject prior to that further processing with information on that other purpose and other necessary information. Where the origin of the personal data cannot be provided to the data subject because various sources have been used, general information should be provided.",
+  "commentary": "This requirement applies specifically when personal data is not collected from the data subject (Article 14). Legal discourse is still ongoing whether background collection on smartphones counts as 'from the data subject' or not - you are to assume that Article 14 applies. The categories of personal data must be described in a way that is meaningful to the data subject. This includes both broad categories (e.g., 'contact information', 'financial data') and more specific types where appropriate. The description should be clear enough for data subjects to understand what types of their personal information are being processed. The EDPB Guidelines emphasize that the level of detail should be appropriate to the context and should enable data subjects to understand the scope of processing. Categories should be described using terminology that data subjects can understand, avoiding overly technical language.",
+  "plain_summary": "When organizations collect personal information from sources other than the person themselves, they must tell people what types of personal data they have about them. This means describing the categories of information in clear, understandable terms - like 'contact details', 'financial information', or 'online activity data'. The description should be specific enough that people can understand what information the organization has about them, but doesn't need to list every single data point.",
+  "examples": [
+    {
+      "policy_snippet": "We may process the following categories of your personal data: contact information (name, email address, phone number), financial information (payment card details, billing address), and technical data (IP address, device information, browsing history).",
+      "annotation": {
+        "span": "contact information (name, email address, phone number), financial information (payment card details, billing address), and technical data (IP address, device information, browsing history)",
+        "label": "Data Categories"
+      },
+      "explanation": "Clearly categorizes personal data into meaningful groups with specific examples, making it easy for data subjects to understand what types of their information are being processed."
+    },
+    {
+      "policy_snippet": "The personal data we process includes: identification data, contact details, financial and transaction data, technical and usage data, and marketing preferences.",
+      "annotation": {
+        "span": "identification data, contact details, financial and transaction data, technical and usage data, and marketing preferences",
+        "label": "Data Categories"
+      },
+      "explanation": "Provides clear categories of personal data using terminology that data subjects can understand, covering the main types of information typically processed."
+    }
+  ],
+  "source_references": [
+    {"type": "GDPR", "link": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32016R0679"},
+    {"type": "Guideline", "link": "https://edpb.europa.eu/our-work-tools/our-documents/guidelines/guidelines-transparency-under-regulation-2016678_en"}
+  ],
+  "last_updated": "2024-01-15",
+  "version": "v1.0"
+} 

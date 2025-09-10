@@ -1,0 +1,13 @@
+{
+  "model_name": "all-MiniLM-L6-v2",
+  "embedding_dimension": 384,
+  "total_examples": {
+    "annotate": 380,
+    "classify": 380
+  },
+  "total_embeddings": {
+    "annotate": 380,
+    "classify": 380
+  },
+  "created_at": "2024-01-15"
+}

@@ -1,0 +1,31 @@
+{
+  "label": "Data Recipients",
+  "gdpr_references": ["Article 13(1)(e)", "Article 14(1)(e)", "Recital 60"],
+  "legal_text": "Article 13(1)(e): The recipients or categories of recipients of the personal data, if any.\n\nArticle 14(1)(e): The recipients or categories of recipients of the personal data, if any.\n\nRecital 60: The principles of fair and transparent processing require that the data subject be informed of the existence of the processing operation and its purposes. The controller should provide the data subject with any further information necessary to ensure fair and transparent processing taking into account the specific circumstances and context in which the personal data are processed. Furthermore, the data subject should be informed of the existence of profiling and the consequences of such profiling. Where the personal data are collected from the data subject, the data subject should also be informed whether he or she is obliged to provide the personal data and of the consequences, where he or she does not provide such data. That information may be provided in combination with standardised icons in order to give in an easily visible, intelligible and clearly legible manner a meaningful overview of the intended processing. Where the icons are presented electronically they should be machine-readable.",
+  "commentary": "Data recipients are third parties to whom personal data is disclosed or made available. This includes both specific named recipients and categories of recipients. The EDPB Guidelines emphasize that recipients should be identified as specifically as possible, though categories may be acceptable when specific recipients cannot be determined in advance. Recipients include service providers, business partners, government authorities, and other third parties. The information should be provided even if there are no recipients at the time of collection, as this may change. When using categories, they should be specific enough for data subjects to understand the types of organizations that may receive their data. The controller must also inform data subjects of any changes to recipients.",
+  "plain_summary": "Organizations must tell people who else might receive their personal data. This includes other companies, service providers, government agencies, or any other third parties. The organization can either name specific recipients (like 'we share data with Company X') or describe categories of recipients (like 'payment processors' or 'marketing partners'). If no data is shared with anyone else, this should be clearly stated. The information should be specific enough that people understand who might have access to their information.",
+  "examples": [
+    {
+      "policy_snippet": "We may share your personal data with the following recipients: payment processors (to process your transactions), delivery partners (to fulfill your orders), and marketing service providers (to send you relevant offers, with your consent).",
+      "annotation": {
+        "span": "payment processors (to process your transactions), delivery partners (to fulfill your orders), and marketing service providers (to send you relevant offers, with your consent)",
+        "label": "Data Recipients"
+      },
+      "explanation": "Clearly identifies categories of recipients with specific purposes for each, making it transparent who receives the data and why."
+    },
+    {
+      "policy_snippet": "Your personal data may be shared with: Stripe (our payment processor), DHL (for order delivery), and Google Analytics (for website analytics). We do not sell your personal data to third parties.",
+      "annotation": {
+        "span": "Stripe (our payment processor), DHL (for order delivery), and Google Analytics (for website analytics)",
+        "label": "Data Recipients"
+      },
+      "explanation": "Names specific recipients with their roles, providing clear transparency about who receives the data and for what purpose."
+    }
+  ],
+  "source_references": [
+    {"type": "GDPR", "link": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32016R0679"},
+    {"type": "Guideline", "link": "https://edpb.europa.eu/our-work-tools/our-documents/guidelines/guidelines-transparency-under-regulation-2016678_en"}
+  ],
+  "last_updated": "2024-01-15",
+  "version": "v1.0"
+} 

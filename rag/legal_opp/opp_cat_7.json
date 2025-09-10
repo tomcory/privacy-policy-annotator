@@ -1,0 +1,5 @@
+{
+  "label": "Policy Change",
+  "description": "The company/organization’s practices concerning if and how users will be informed of changes to its privacy policy, including any choices offered to users.",
+  "usage": "Apply when the policy describes how users will be notified about changes to the privacy policy and what choices they have.\n\nKey attributes to consider:\n- Change Type (required): What changes trigger notifications - privacy-relevant changes, non-privacy changes, merger/acquisition\n- Notification Type (required): How users are notified - no notification, general notice, personal notice\n- User Choice (required): What options users have - none, opt-out, opt-in, user participation"
+}

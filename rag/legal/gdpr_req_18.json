@@ -1,0 +1,31 @@
+{
+  "label": "Right to Object",
+  "gdpr_references": ["Article 13(2)(b)", "Article 14(2)(c)", "Article 21", "Recital 69", "Recital 70"],
+  "legal_text": "Article 13(2)(b): The existence of the right to request from the controller access to and rectification or erasure of personal data or restriction of processing concerning the data subject or to object to such processing and the existence of the right to data portability.\n\nArticle 14(2)(c): The existence of the right to request from the controller access to and rectification or erasure of personal data or restriction of processing concerning the data subject or to object to such processing and the existence of the right to data portability.\n\nArticle 21(1): The data subject shall have the right to object, on grounds relating to his or her particular situation, at any time to processing of personal data concerning him or her which is based on point (e) or (f) of Article 6(1), including profiling based on those provisions. The controller shall no longer process the personal data unless the controller demonstrates compelling legitimate grounds for the processing which override the interests, rights and freedoms of the data subject or for the establishment, exercise or defence of legal claims.\n\nRecital 69: The data subject should have the right to object to processing of personal data concerning him or her, and this right should be explicitly brought to the attention of the data subject and be presented clearly and separately from any other information. The data subject should be able to exercise this right as easily as possible, in particular by automated means using technical specifications. The data subject should have the right to object to the processing of personal data concerning him or her which is processed for the purposes of direct marketing, including profiling to the extent that it is related to such direct marketing, whether with regard to initial or further processing, at any time and free of charge. The data subject should have the right to object to the processing of personal data concerning him or her which is processed for scientific or historical research purposes or statistical purposes on grounds relating to his or her particular situation unless the processing is necessary for the performance of a task carried out for reasons of public interest.\n\nRecital 70: Where personal data are processed for the purposes of direct marketing, the data subject should have the right to object to such processing, including profiling to the extent that it is related to such direct marketing, whether with regard to initial or further processing, at any time and free of charge. That right should be explicitly brought to the attention of the data subject and be presented clearly and separately from any other information.",
+  "commentary": "The right to object allows data subjects to stop processing of their personal data in specific circumstances. This right is particularly strong for direct marketing - data subjects can object at any time and free of charge, and the controller must stop processing immediately. For other processing based on legitimate interests or public interest, the controller can continue if they demonstrate compelling legitimate grounds. The EDPB Guidelines emphasize that this right must be brought to the data subject's attention clearly and separately from other information. The right applies to profiling based on legitimate interests or public interest. Controllers must inform data subjects of this right at the latest at the time of first communication.",
+  "plain_summary": "People have the right to object to the processing of their personal data in certain situations. This is especially strong for direct marketing - people can object at any time and the organization must stop immediately. For other types of processing (like when the organization has a legitimate interest), the organization can continue if they have a very good reason that outweighs the person's rights. The right to object must be clearly explained to people and should be easy to exercise. Organizations must tell people about this right, especially when they first contact them for marketing purposes.",
+  "examples": [
+    {
+      "policy_snippet": "You have the right to object to the processing of your personal data at any time. This includes the right to object to direct marketing communications, which you can do by clicking the 'unsubscribe' link in any marketing email or contacting us directly. For other processing, we will assess your objection and respond within 30 days.",
+      "annotation": {
+        "span": "You have the right to object to the processing of your personal data at any time. This includes the right to object to direct marketing communications, which you can do by clicking the 'unsubscribe' link in any marketing email or contacting us directly",
+        "label": "Right to Object"
+      },
+      "explanation": "Explains the right to object and provides specific information about how to object to direct marketing, making it easy for data subjects to exercise their rights."
+    },
+    {
+      "policy_snippet": "Under GDPR Article 21, you have the right to object to processing based on our legitimate interests or public interest. You also have an absolute right to object to direct marketing at any time, free of charge. We will stop processing for direct marketing immediately upon receiving your objection.",
+      "annotation": {
+        "span": "you have the right to object to processing based on our legitimate interests or public interest. You also have an absolute right to object to direct marketing at any time, free of charge",
+        "label": "Right to Object"
+      },
+      "explanation": "References the GDPR article and clearly distinguishes between the general right to object and the absolute right to object to direct marketing."
+    }
+  ],
+  "source_references": [
+    {"type": "GDPR", "link": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32016R0679"},
+    {"type": "Guideline", "link": "https://edpb.europa.eu/our-work-tools/our-documents/guidelines/guidelines-right-object_en"}
+  ],
+  "last_updated": "2024-01-15",
+  "version": "v1.0"
+} 

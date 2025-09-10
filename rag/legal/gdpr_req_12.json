@@ -1,0 +1,31 @@
+{
+  "label": "Mandatory Data Disclosure",
+  "gdpr_references": ["Article 13(2)(e)", "Recital 60"],
+  "legal_text": "Article 13(2)(e): Whether the provision of personal data is a statutory or contractual requirement, or a requirement necessary to enter into a contract, as well as whether the data subject is obliged to provide the personal data and of the possible consequences of failure to provide such data.\n\nRecital 60: The principles of fair and transparent processing require that the data subject be informed of the existence of the processing operation and its purposes. The controller should provide the data subject with any further information necessary to ensure fair and transparent processing taking into account the specific circumstances and context in which the personal data are processed. Furthermore, the data subject should be informed of the existence of profiling and the consequences of such profiling. Where the personal data are collected from the data subject, the data subject should also be informed whether he or she is obliged to provide the personal data and of the consequences, where he or she does not provide such data. That information may be provided in combination with standardised icons in order to give in an easily visible, intelligible and clearly legible manner a meaningful overview of the intended processing. Where the icons are presented electronically they should be machine-readable.",
+  "commentary": "This requirement applies when personal data is collected directly from the data subject. The controller must inform data subjects whether providing the data is mandatory (required by law or contract) or optional, and what the consequences would be if they choose not to provide it. This helps data subjects make informed decisions about whether to provide their data. The EDPB Guidelines emphasize that this information should be clear and specific, not vague. For example, if certain data is required to provide a service, the consequences of not providing it (e.g., 'we cannot process your order') should be clearly stated. This requirement promotes transparency and helps data subjects understand their obligations and choices.",
+  "plain_summary": "When organizations collect personal data directly from people, they must tell them whether providing the information is required or optional. If it's required, they must explain why (because of a law, contract, or to provide a service) and what happens if the person doesn't provide it (like 'we can't process your order'). If it's optional, they should make that clear too. This helps people understand what information they must provide and what the consequences are if they choose not to.",
+  "examples": [
+    {
+      "policy_snippet": "The following personal data is required to process your order: name, email address, and payment information. Without this information, we cannot fulfill your order. Providing your phone number is optional and is used only for delivery updates.",
+      "annotation": {
+        "span": "The following personal data is required to process your order: name, email address, and payment information. Without this information, we cannot fulfill your order. Providing your phone number is optional and is used only for delivery updates",
+        "label": "Mandatory Data Disclosure"
+      },
+      "explanation": "Clearly distinguishes between mandatory and optional data, explains why certain data is required, and states the consequences of not providing mandatory data."
+    },
+    {
+      "policy_snippet": "You are required to provide your name, address, and tax identification number as required by law for tax reporting purposes. Failure to provide this information may result in our inability to provide services to you.",
+      "annotation": {
+        "span": "You are required to provide your name, address, and tax identification number as required by law for tax reporting purposes. Failure to provide this information may result in our inability to provide services to you",
+        "label": "Mandatory Data Disclosure"
+      },
+      "explanation": "Identifies mandatory data with legal justification and clearly states the consequences of non-provision."
+    }
+  ],
+  "source_references": [
+    {"type": "GDPR", "link": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32016R0679"},
+    {"type": "Guideline", "link": "https://edpb.europa.eu/our-work-tools/our-documents/guidelines/guidelines-transparency-under-regulation-2016678_en"}
+  ],
+  "last_updated": "2024-01-15",
+  "version": "v1.0"
+} 

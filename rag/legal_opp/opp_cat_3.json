@@ -1,0 +1,5 @@
+{
+  "label": "User Choice/Control",
+  "description": "Practice that describes general choices and control options available to users.",
+  "usage": "Apply when the policy describes general user control mechanisms and privacy choices available to users, regardless of specific data practices.\n\nKey attributes to consider:\n- Choice Type (required): What control options exist - opt-in, opt-out links, privacy controls, browser settings, etc.\n- Choice Scope (required): What the choices apply to - first party collection/use, third party sharing/use\n- Personal Information Type (required): What data the choices apply to\n- Purpose (required): What purposes the choices cover\n- User Type (optional): Whether choices apply to users with/without accounts"
+}

@@ -1,0 +1,31 @@
+{
+  "label": "Third-country Transfers",
+  "gdpr_references": ["Article 13(1)(f)", "Article 14(1)(f)", "Chapter V", "Recital 60"],
+  "legal_text": "Article 13(1)(f): Where applicable, that the controller intends to transfer personal data to a recipient in a third country or international organisation and the existence or absence of an adequacy decision by the Commission, or in the case of transfers referred to in Article 46 or 47, or Article 49(1), second subparagraph, reference to the appropriate or suitable safeguards and the means to obtain a copy of them or where they have been made available.\n\nArticle 14(1)(f): Where applicable, that the controller intends to transfer personal data to a recipient in a third country or international organisation and the existence or absence of an adequacy decision by the Commission, or in the case of transfers referred to in Article 46 or 47, or Article 49(1), second subparagraph, reference to the appropriate or suitable safeguards and the means to obtain a copy of them or where they have been made available.\n\nRecital 60: The principles of fair and transparent processing require that the data subject be informed of the existence of the processing operation and its purposes. The controller should provide the data subject with any further information necessary to ensure fair and transparent processing taking into account the specific circumstances and context in which the personal data are processed. Furthermore, the data subject should be informed of the existence of profiling and the consequences of such profiling. Where the personal data are collected from the data subject, the data subject should also be informed whether he or she is obliged to provide the personal data and of the consequences, where he or she does not provide such data. That information may be provided in combination with standardised icons in order to give in an easily visible, intelligible and clearly legible manner a meaningful overview of the intended processing. Where the icons are presented electronically they should be machine-readable.",
+  "commentary": "When personal data is transferred outside the EU/EEA, the controller must inform data subjects about the transfer and the safeguards in place. This includes whether the destination country has an adequacy decision, what safeguards are used (like Standard Contractual Clauses or Binding Corporate Rules), and how data subjects can obtain copies of these safeguards. The EDPB Guidelines emphasize that this information must be provided even if the transfer is only potential or occasional. The information should be clear enough for data subjects to understand the risks and protections associated with international transfers. Controllers must also inform data subjects of any changes to transfer arrangements.",
+  "plain_summary": "When organizations transfer personal data outside the European Union, they must tell people about it and explain what protections are in place. This includes whether the destination country has been approved by the EU as having adequate data protection laws, or what other safeguards (like special contracts) are being used to protect the data. People should also be told how they can get copies of these protection measures. This is important because data protection laws may be weaker in other countries.",
+  "examples": [
+    {
+      "policy_snippet": "We may transfer your personal data to the United States, where our parent company is located. These transfers are protected by Standard Contractual Clauses approved by the European Commission. You can obtain a copy of these safeguards by contacting our Data Protection Officer.",
+      "annotation": {
+        "span": "We may transfer your personal data to the United States, where our parent company is located. These transfers are protected by Standard Contractual Clauses approved by the European Commission. You can obtain a copy of these safeguards by contacting our Data Protection Officer",
+        "label": "Third-country Transfers"
+      },
+      "explanation": "Clearly identifies the destination country, the specific safeguard used (Standard Contractual Clauses), and how data subjects can obtain copies of the safeguards."
+    },
+    {
+      "policy_snippet": "Your data may be transferred to countries outside the EU, including India and the Philippines, for customer support services. These transfers are based on adequacy decisions or appropriate safeguards including Standard Contractual Clauses and Binding Corporate Rules.",
+      "annotation": {
+        "span": "Your data may be transferred to countries outside the EU, including India and the Philippines, for customer support services. These transfers are based on adequacy decisions or appropriate safeguards including Standard Contractual Clauses and Binding Corporate Rules",
+        "label": "Third-country Transfers"
+      },
+      "explanation": "Identifies specific destination countries, the purpose of transfer, and multiple types of safeguards used to protect the data."
+    }
+  ],
+  "source_references": [
+    {"type": "GDPR", "link": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32016R0679"},
+    {"type": "Guideline", "link": "https://edpb.europa.eu/our-work-tools/our-documents/guidelines/guidelines-transparency-under-regulation-2016678_en"}
+  ],
+  "last_updated": "2024-01-15",
+  "version": "v1.0"
+} 

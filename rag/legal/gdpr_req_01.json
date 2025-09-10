@@ -1,0 +1,31 @@
+{
+  "label": "Controller Name",
+  "gdpr_references": ["Article 13(1)(a)", "Article 14(1)(a)", "Recital 61"],
+  "legal_text": "Article 13(1)(a): The identity and the contact details of the controller and, where applicable, of the controller's representative.\n\nArticle 14(1)(a): The identity and the contact details of the controller and, where applicable, of the controller's representative.\n\nRecital 61: The information in relation to the processing of personal data relating to the data subject should be given to them at the time of collection from the data subject, or, where the personal data are collected from another source, within a reasonable period after obtaining the personal data, depending on the circumstances of the case. Where personal data can be legitimately disclosed to another recipient, the data subject should be informed when the personal data are first disclosed to the recipient. Where the controller intends to process the personal data for a purpose other than that for which they were collected, the controller should provide the data subject prior to that further processing with information on that other purpose and other necessary information. Where the origin of the personal data cannot be provided to the data subject because various sources have been used, general information should be provided.",
+  "commentary": "The controller is the entity that determines the purposes and means of processing personal data. This requirement ensures data subjects know who is responsible for processing their data. The controller must be clearly identifiable, and if the controller is not established in the EU, they must designate a representative within the EU. The name should be the legal entity name as registered in official records. For complex corporate structures, the ultimate parent company may also need to be identified. The EDPB Guidelines on transparency emphasize that the controller's identity must be provided in a clear and unambiguous manner.",
+  "plain_summary": "Organizations must clearly state their legal name when collecting personal data. This tells people exactly which company or organization is responsible for handling their information. If the company is based outside the EU, they must also provide contact details for their EU representative. The name should be the official registered name of the business, not a trading name or brand.",
+  "examples": [
+    {
+      "policy_snippet": "This Privacy Policy describes how Acme Corporation Ltd. ('we', 'us', or 'our') collects, uses, and shares your personal information.",
+      "annotation": {
+        "span": "Acme Corporation Ltd.",
+        "label": "Controller Name"
+      },
+      "explanation": "This clearly identifies the legal entity responsible for data processing. The use of 'Ltd.' indicates it's the official registered company name."
+    },
+    {
+      "policy_snippet": "Your personal data is processed by Tech Solutions Inc., a company registered in Delaware, United States. Our EU representative is European Data Services GmbH, located at 123 Privacy Street, Berlin, Germany.",
+      "annotation": {
+        "span": "Tech Solutions Inc.",
+        "label": "Controller Name"
+      },
+      "explanation": "Identifies the non-EU controller and also provides the required EU representative information for compliance."
+    }
+  ],
+  "source_references": [
+    {"type": "GDPR", "link": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32016R0679"},
+    {"type": "Guideline", "link": "https://edpb.europa.eu/our-work-tools/our-documents/guidelines/guidelines-transparency-under-regulation-2016678_en"}
+  ],
+  "last_updated": "2024-01-15",
+  "version": "v1.0"
+} 

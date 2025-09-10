@@ -1,0 +1,5 @@
+{
+  "label": "User Access, Edit and Deletion",
+  "description": "Privacy practice that allows users to access, edit or delete the data that the company/organization has about them.",
+  "usage": "Apply when the policy describes users' rights to access, modify, or delete their data from the company's systems.\n\nKey attributes to consider:\n- Access Type (required): What access options exist - view, export, edit, deactivate account, delete account (partial/full)\n- Access Scope (required): What data users can access - account data, transactional data, profile data, other data about them\n- User Type (optional): Whether access applies to users with/without accounts"
+}

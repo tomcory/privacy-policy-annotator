@@ -1,0 +1,31 @@
+{
+  "label": "Controller Contact",
+  "gdpr_references": ["Article 13(1)(a)", "Article 14(1)(a)", "Recital 61"],
+  "legal_text": "Article 13(1)(a): The identity and the contact details of the controller and, where applicable, of the controller's representative.\n\nArticle 14(1)(a): The identity and the contact details of the controller and, where applicable, of the controller's representative.\n\nRecital 61: The information in relation to the processing of personal data relating to the data subject should be given to them at the time of collection from the data subject, or, where the personal data are collected from another source, within a reasonable period after obtaining the personal data, depending on the circumstances of the case. Where personal data can be legitimately disclosed to another recipient, the data subject should be informed when the personal data are first disclosed to the recipient. Where the controller intends to process the personal data for a purpose other than that for which they were collected, the controller should provide the data subject prior to that further processing with information on that other purpose and other necessary information. Where the origin of the personal data cannot be provided to the data subject because various sources have been used, general information should be provided.",
+  "commentary": "Contact details must enable data subjects to easily reach the controller for privacy-related inquiries. This typically includes a postal address, email address, and/or phone number. The contact information should be functional and regularly monitored. For large organizations, a dedicated privacy contact or department is recommended. The EDPB Guidelines emphasize that contact details must be effective and accessible, not just formal compliance. If the controller is not established in the EU, the EU representative's contact details must also be provided. The contact information should be provided in a way that allows data subjects to exercise their rights effectively.",
+  "plain_summary": "Organizations must provide clear contact information so people can reach them with privacy questions or to exercise their rights. This usually means providing an email address, phone number, or postal address that actually works and is monitored. For companies outside the EU, they must also provide contact details for their EU representative. The contact information should be easy to find and use, not just a generic contact form that goes nowhere.",
+  "examples": [
+    {
+      "policy_snippet": "If you have any questions about this Privacy Policy or our data practices, please contact us at: privacy@acmecorp.com or write to us at: Acme Corporation, Privacy Office, 123 Business Street, London, UK, SW1A 1AA.",
+      "annotation": {
+        "span": "privacy@acmecorp.com or write to us at: Acme Corporation, Privacy Office, 123 Business Street, London, UK, SW1A 1AA",
+        "label": "Controller Contact"
+      },
+      "explanation": "Provides both email and postal contact information for privacy inquiries, making it easy for data subjects to reach the controller."
+    },
+    {
+      "policy_snippet": "For privacy-related inquiries, please contact our Data Protection Officer at dpo@company.com or call our privacy hotline at +44 20 7946 0958.",
+      "annotation": {
+        "span": "dpo@company.com or call our privacy hotline at +44 20 7946 0958",
+        "label": "Controller Contact"
+      },
+      "explanation": "Provides dedicated privacy contact methods including both email and phone, with specific reference to privacy inquiries."
+    }
+  ],
+  "source_references": [
+    {"type": "GDPR", "link": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32016R0679"},
+    {"type": "Guideline", "link": "https://edpb.europa.eu/our-work-tools/our-documents/guidelines/guidelines-transparency-under-regulation-2016678_en"}
+  ],
+  "last_updated": "2024-01-15",
+  "version": "v1.0"
+} 

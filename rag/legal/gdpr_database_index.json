@@ -1,0 +1,197 @@
+{
+  "database_info": {
+    "title": "GDPR Legal Background Database for RAG-Enhanced Annotation",
+    "description": "A structured, label-specific database of legal background material for GDPR transparency annotation pipeline",
+    "version": "v1.0",
+    "last_updated": "2024-01-15",
+    "total_requirements": 21,
+    "coverage": "Complete coverage of GDPR Articles 13 and 14 transparency requirements"
+  },
+  "requirements_overview": [
+    {
+      "requirement_number": 1,
+      "label": "Controller Name",
+      "gdpr_references": ["Article 13(1)(a)", "Article 14(1)(a)"],
+      "file": "gdpr_req_01.json",
+      "description": "Identity and contact details of the controller and, where applicable, the controller's representative"
+    },
+    {
+      "requirement_number": 2,
+      "label": "Controller Contact",
+      "gdpr_references": ["Article 13(1)(a)", "Article 14(1)(a)"],
+      "file": "gdpr_req_02.json",
+      "description": "Contact details enabling data subjects to reach the controller for privacy-related inquiries"
+    },
+    {
+      "requirement_number": 3,
+      "label": "DPO Contact",
+      "gdpr_references": ["Article 13(1)(b)", "Article 14(1)(b)"],
+      "file": "gdpr_req_03.json",
+      "description": "Contact details of the data protection officer, where applicable"
+    },
+    {
+      "requirement_number": 4,
+      "label": "Data Categories",
+      "gdpr_references": ["Article 14(1)(d)"],
+      "file": "gdpr_req_04.json",
+      "description": "Categories of personal data concerned (when not collected from data subject)"
+    },
+    {
+      "requirement_number": 5,
+      "label": "Processing Purpose",
+      "gdpr_references": ["Article 13(1)(c)", "Article 14(1)(c)"],
+      "file": "gdpr_req_05.json",
+      "description": "Purposes of the processing for which the personal data are intended"
+    },
+    {
+      "requirement_number": 6,
+      "label": "Legal Basis for Processing",
+      "gdpr_references": ["Article 13(1)(c)", "Article 14(1)(c)"],
+      "file": "gdpr_req_06.json",
+      "description": "Legal basis for the processing of personal data"
+    },
+    {
+      "requirement_number": 7,
+      "label": "Legitimate Interests for Processing",
+      "gdpr_references": ["Article 13(1)(d)"],
+      "file": "gdpr_req_07.json",
+      "description": "Legitimate interests pursued by the controller or third party (when applicable)"
+    },
+    {
+      "requirement_number": 8,
+      "label": "Source of Data",
+      "gdpr_references": ["Article 14(2)(f)"],
+      "file": "gdpr_req_08.json",
+      "description": "Source of personal data and whether it came from publicly accessible sources"
+    },
+    {
+      "requirement_number": 9,
+      "label": "Data Retention Period",
+      "gdpr_references": ["Article 13(2)(a)", "Article 14(2)(a)"],
+      "file": "gdpr_req_09.json",
+      "description": "Period for which personal data will be stored or criteria to determine that period"
+    },
+    {
+      "requirement_number": 10,
+      "label": "Data Recipients",
+      "gdpr_references": ["Article 13(1)(e)", "Article 14(1)(e)"],
+      "file": "gdpr_req_10.json",
+      "description": "Recipients or categories of recipients of the personal data"
+    },
+    {
+      "requirement_number": 11,
+      "label": "Third-country Transfers",
+      "gdpr_references": ["Article 13(1)(f)", "Article 14(1)(f)"],
+      "file": "gdpr_req_11.json",
+      "description": "Information about transfers to third countries and safeguards in place"
+    },
+    {
+      "requirement_number": 12,
+      "label": "Mandatory Data Disclosure",
+      "gdpr_references": ["Article 13(2)(e)"],
+      "file": "gdpr_req_12.json",
+      "description": "Whether provision of personal data is mandatory and consequences of failure to provide"
+    },
+    {
+      "requirement_number": 13,
+      "label": "Automated Decision-Making",
+      "gdpr_references": ["Article 13(2)(f)", "Article 14(2)(f)"],
+      "file": "gdpr_req_13.json",
+      "description": "Existence of automated decision-making and information about logic and consequences"
+    },
+    {
+      "requirement_number": 14,
+      "label": "Right to Access",
+      "gdpr_references": ["Article 13(2)(b)", "Article 14(2)(c)"],
+      "file": "gdpr_req_14.json",
+      "description": "Right to request access to personal data and related information"
+    },
+    {
+      "requirement_number": 15,
+      "label": "Right to Rectification",
+      "gdpr_references": ["Article 13(2)(b)", "Article 14(2)(c)"],
+      "file": "gdpr_req_15.json",
+      "description": "Right to request correction of inaccurate or incomplete personal data"
+    },
+    {
+      "requirement_number": 16,
+      "label": "Right to Erasure",
+      "gdpr_references": ["Article 13(2)(b)", "Article 14(2)(c)"],
+      "file": "gdpr_req_16.json",
+      "description": "Right to request deletion of personal data (right to be forgotten)"
+    },
+    {
+      "requirement_number": 17,
+      "label": "Right to Restrict",
+      "gdpr_references": ["Article 13(2)(b)", "Article 14(2)(c)"],
+      "file": "gdpr_req_17.json",
+      "description": "Right to request restriction of processing of personal data"
+    },
+    {
+      "requirement_number": 18,
+      "label": "Right to Object",
+      "gdpr_references": ["Article 13(2)(b)", "Article 14(2)(c)"],
+      "file": "gdpr_req_18.json",
+      "description": "Right to object to processing of personal data"
+    },
+    {
+      "requirement_number": 19,
+      "label": "Right to Portability",
+      "gdpr_references": ["Article 13(2)(b)", "Article 14(2)(c)"],
+      "file": "gdpr_req_19.json",
+      "description": "Right to receive personal data in portable format and transmit to another controller"
+    },
+    {
+      "requirement_number": 20,
+      "label": "Right to Withdraw Consent",
+      "gdpr_references": ["Article 13(2)(c)", "Article 14(2)(d)"],
+      "file": "gdpr_req_20.json",
+      "description": "Right to withdraw consent at any time (when processing is based on consent)"
+    },
+    {
+      "requirement_number": 21,
+      "label": "Right to Lodge Complaint",
+      "gdpr_references": ["Article 13(2)(d)", "Article 14(2)(e)"],
+      "file": "gdpr_req_21.json",
+      "description": "Right to lodge a complaint with a supervisory authority"
+    }
+  ],
+  "database_structure": {
+    "format": "JSON",
+    "fields_per_entry": [
+      "label",
+      "gdpr_references",
+      "legal_text",
+      "commentary",
+      "plain_summary",
+      "examples",
+      "source_references",
+      "last_updated",
+      "version"
+    ],
+    "example_structure": {
+      "examples": [
+        {
+          "policy_snippet": "Example policy text",
+          "annotation": {
+            "span": "Relevant text span",
+            "label": "Label name"
+          },
+          "explanation": "Why this is a correct annotation"
+        }
+      ]
+    }
+  },
+  "usage_guidelines": {
+    "rag_integration": "This database is designed for integration with retrieval-augmented generation systems for GDPR transparency annotation",
+    "search_functionality": "Entries can be searched by label name, GDPR references, or content",
+    "version_control": "Each entry includes version and last_updated fields for tracking changes",
+    "source_verification": "All legal text and commentary includes source references for verification"
+  },
+  "legal_sources": {
+    "primary": "GDPR Regulation (EU) 2016/679",
+    "guidelines": "EDPB Guidelines on various GDPR topics",
+    "recitals": "GDPR Recitals providing context and interpretation",
+    "case_law": "Relevant case law and interpretations"
+  }
+} 

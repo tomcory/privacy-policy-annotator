@@ -1,0 +1,31 @@
+{
+  "label": "Right to Rectification",
+  "gdpr_references": ["Article 13(2)(b)", "Article 14(2)(c)", "Article 16", "Recital 65"],
+  "legal_text": "Article 13(2)(b): The existence of the right to request from the controller access to and rectification or erasure of personal data or restriction of processing concerning the data subject or to object to such processing and the existence of the right to data portability.\n\nArticle 14(2)(c): The existence of the right to request from the controller access to and rectification or erasure of personal data or restriction of processing concerning the data subject or to object to such processing and the existence of the right to data portability.\n\nArticle 16: The data subject shall have the right to obtain from the controller without undue delay the rectification of inaccurate personal data concerning him or her. Taking into account the purposes of the processing, the data subject shall have the right to have incomplete personal data completed, including by means of providing a supplementary statement.\n\nRecital 65: A data subject should have the right to have personal data concerning him or her rectified and a 'right to be forgotten' where the retention of such data infringes this Regulation or Union or Member State law to which the controller is subject. In particular, a data subject should have the right to have his or her personal data erased and no longer processed where the personal data are no longer necessary in relation to the purposes for which they are collected or otherwise processed, where a data subject has withdrawn his or her consent or objects to the processing of personal data concerning him or her, or where the processing of his or her personal data does not otherwise comply with this Regulation. That right is relevant in particular where the data subject has given his or her consent as a child and is not fully aware of the risks involved by the processing, and later wants to remove such personal data, especially on the internet. The data subject should be able to exercise that right notwithstanding the fact that he or she is no longer a child. However, the further retention of the personal data should be lawful where it is necessary, for exercising the right of freedom of expression and information, for compliance with a legal obligation, for the performance of a task carried out in the public interest or in the exercise of official authority vested in the controller, on the grounds of public interest in the area of public health, for archiving purposes in the public interest, scientific or historical research purposes or statistical purposes, or for the establishment, exercise or defence of legal claims.",
+  "commentary": "The right to rectification allows data subjects to correct inaccurate personal data and complete incomplete data. This right is fundamental to data accuracy and quality. The EDPB Guidelines emphasize that controllers must respond without undue delay (typically within one month) and take reasonable steps to verify the accuracy of the data before rectification. The right applies to both factual inaccuracies and outdated information. Controllers must also inform any recipients of the data about the rectification, unless this is impossible or involves disproportionate effort. The right to rectification is closely linked to the principle of data accuracy in Article 5(1)(d) of the GDPR.",
+  "plain_summary": "People have the right to ask organizations to correct inaccurate or incomplete personal data about them. This includes fixing wrong information (like an incorrect address or phone number) and adding missing information. Organizations must respond quickly and take reasonable steps to verify the accuracy of the data. If the organization has shared the incorrect data with other companies, they must also tell those companies about the correction. This right helps ensure that organizations have accurate information about people.",
+  "examples": [
+    {
+      "policy_snippet": "You have the right to request correction of any inaccurate personal data we hold about you. If you notice any errors in your account information, please contact us and we will update your records promptly. We will also notify any third parties with whom we have shared your data about the correction.",
+      "annotation": {
+        "span": "You have the right to request correction of any inaccurate personal data we hold about you. If you notice any errors in your account information, please contact us and we will update your records promptly",
+        "label": "Right to Rectification"
+      },
+      "explanation": "Clearly explains the right to rectification, how to exercise it, and the controller's obligation to notify third parties about corrections."
+    },
+    {
+      "policy_snippet": "Under GDPR Article 16, you have the right to have inaccurate personal data rectified and incomplete personal data completed. We will respond to rectification requests within 30 days and take reasonable steps to verify the accuracy of the information provided.",
+      "annotation": {
+        "span": "you have the right to have inaccurate personal data rectified and incomplete personal data completed",
+        "label": "Right to Rectification"
+      },
+      "explanation": "References the specific GDPR article and explains both aspects of the right to rectification with a clear response timeframe."
+    }
+  ],
+  "source_references": [
+    {"type": "GDPR", "link": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32016R0679"},
+    {"type": "Guideline", "link": "https://edpb.europa.eu/our-work-tools/our-documents/guidelines/guidelines-right-rectification_en"}
+  ],
+  "last_updated": "2024-01-15",
+  "version": "v1.0"
+} 

@@ -1,0 +1,5 @@
+{
+  "label": "Do Not Track",
+  "description": "Practices that explain if and how Do Not Track signals (DNT) for online tracking and advertising are honored.",
+  "usage": "Apply when the policy mentions Do Not Track (DNT) signals and how the company responds to them.\n\nKey attributes to consider:\n- Do Not Track policy (required): How DNT is handled - not mentioned, honored, not honored, mentioned but unclear"
+}

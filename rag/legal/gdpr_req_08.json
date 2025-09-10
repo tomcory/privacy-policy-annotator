@@ -1,0 +1,31 @@
+{
+  "label": "Source of Data",
+  "gdpr_references": ["Article 14(2)(f)", "Recital 61"],
+  "legal_text": "Article 14(2)(f): From which source the personal data originate, and if applicable, whether it came from publicly accessible sources.\n\nRecital 61: The information in relation to the processing of personal data relating to the data subject should be given to them at the time of collection from the data subject, or, where the personal data are collected from another source, within a reasonable period after obtaining the personal data, depending on the circumstances of the case. Where personal data can be legitimately disclosed to another recipient, the data subject should be informed when the personal data are first disclosed to the recipient. Where the controller intends to process the personal data for a purpose other than that for which they were collected, the controller should provide the data subject prior to that further processing with information on that other purpose and other necessary information. Where the origin of the personal data cannot be provided to the data subject because various sources have been used, general information should be provided.",
+  "commentary": "This requirement applies when personal data is not collected directly from the data subject. The controller must identify the source of the personal data, whether it's a specific third party, a publicly accessible source, or multiple sources. If the data comes from publicly accessible sources, this must be clearly stated. The EDPB Guidelines emphasize that the source should be identified as specifically as possible, though general categories may be acceptable when the exact source cannot be determined. This information helps data subjects understand how their personal information was obtained and enables them to exercise their rights effectively. The source information should be provided within a reasonable period after obtaining the data.",
+  "plain_summary": "When organizations collect personal information from sources other than the person themselves, they must tell people where they got the information from. This could be from another company, a public database, social media, or other sources. If the information came from publicly available sources (like public records or social media profiles), this must be clearly stated. This helps people understand how their information was obtained and gives them the opportunity to correct any inaccurate information at the source.",
+  "examples": [
+    {
+      "policy_snippet": "We may obtain your personal data from the following sources: publicly available business directories, social media platforms (where you have made your information public), and third-party data providers who collect information from public sources.",
+      "annotation": {
+        "span": "publicly available business directories, social media platforms (where you have made your information public), and third-party data providers who collect information from public sources",
+        "label": "Source of Data"
+      },
+      "explanation": "Clearly identifies multiple sources of personal data, including public sources and third-party providers, making it transparent how the organization obtained the information."
+    },
+    {
+      "policy_snippet": "Your contact information was provided to us by your employer as part of our business relationship, and some additional details were obtained from publicly accessible professional networking sites.",
+      "annotation": {
+        "span": "your employer as part of our business relationship, and some additional details were obtained from publicly accessible professional networking sites",
+        "label": "Source of Data"
+      },
+      "explanation": "Identifies specific sources including a business relationship and publicly accessible sources, providing clear transparency about data origins."
+    }
+  ],
+  "source_references": [
+    {"type": "GDPR", "link": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32016R0679"},
+    {"type": "Guideline", "link": "https://edpb.europa.eu/our-work-tools/our-documents/guidelines/guidelines-transparency-under-regulation-2016678_en"}
+  ],
+  "last_updated": "2024-01-15",
+  "version": "v1.0"
+} 

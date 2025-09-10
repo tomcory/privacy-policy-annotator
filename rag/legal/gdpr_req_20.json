@@ -1,0 +1,31 @@
+{
+  "label": "Right to Withdraw Consent",
+  "gdpr_references": ["Article 13(2)(c)", "Article 14(2)(d)", "Article 7(3)", "Recital 42"],
+  "legal_text": "Article 13(2)(c): Where the processing is based on point (a) of Article 6(1) or point (a) of Article 9(2), the existence of the right to withdraw consent at any time, without affecting the lawfulness of processing based on consent before its withdrawal.\n\nArticle 14(2)(d): Where the processing is based on point (a) of Article 6(1) or point (a) of Article 9(2), the existence of the right to withdraw consent at any time, without affecting the lawfulness of processing based on consent before its withdrawal.\n\nArticle 7(3): The data subject shall have the right to withdraw his or her consent at any time. The withdrawal of consent shall not affect the lawfulness of processing based on consent before its withdrawal. Prior to giving consent, the data subject shall be informed thereof. It shall be as easy to withdraw as to give consent. When assessing whether consent is freely given, utmost account shall be taken of whether, inter alia, the performance of a contract, including the provision of a service, is conditional on consent to the processing of personal data that is not necessary for the performance of that contract.\n\nRecital 42: Consent should be given by a clear affirmative act establishing a freely given, specific, informed and unambiguous indication of the data subject's agreement to the processing of personal data relating to him or her, such as by a written statement, including by electronic means, or an oral statement. This could include ticking a box when visiting an internet website, choosing technical settings for information society services or another statement or conduct which clearly indicates in this context the data subject's acceptance of the proposed processing of his or her personal data. Silence, pre-ticked boxes or inactivity should not therefore constitute consent. Consent should cover all processing activities carried out for the same purpose or purposes. When the processing has multiple purposes, consent should be given for all of them. If the data subject's consent is given in the context of a written declaration which concerns other matters, the request for consent should be presented in a manner which is clearly distinguishable from the other matters, in an intelligible and easily accessible form, using clear and plain language. The data subject should have the right to withdraw his or her consent at any time. It should be as easy to withdraw consent as to give it. When assessing whether consent is freely given, utmost account should be taken of whether, inter alia, the performance of a contract, including the provision of a service, is conditional on consent to the processing of personal data that is not necessary for the performance of that contract.",
+  "commentary": "When processing is based on consent, data subjects have the right to withdraw their consent at any time. The withdrawal must be as easy as giving consent. The EDPB Guidelines emphasize that withdrawal should be possible through the same method used to give consent, and controllers should not make withdrawal unnecessarily difficult. Withdrawal does not affect the lawfulness of processing that occurred before withdrawal. Controllers must inform data subjects of this right before they give consent. The withdrawal should be effective immediately, though some processing may continue if there is another legal basis. Controllers should provide clear and accessible ways to withdraw consent, such as unsubscribe links or account settings.",
+  "plain_summary": "When organizations process personal data based on someone's consent, that person has the right to withdraw their consent at any time. Withdrawing consent must be just as easy as giving it in the first place. The organization must tell people about this right before they give consent. When someone withdraws consent, the organization must stop processing their data for that purpose, but any processing that happened before the withdrawal remains legal. Organizations should make it easy to withdraw consent, such as through unsubscribe links or account settings.",
+  "examples": [
+    {
+      "policy_snippet": "You have the right to withdraw your consent to the processing of your personal data at any time. You can withdraw consent by clicking the 'unsubscribe' link in our emails, updating your preferences in your account settings, or contacting us directly. Withdrawing consent will not affect the lawfulness of any processing that occurred before withdrawal.",
+      "annotation": {
+        "span": "You have the right to withdraw your consent to the processing of your personal data at any time. You can withdraw consent by clicking the 'unsubscribe' link in our emails, updating your preferences in your account settings, or contacting us directly",
+        "label": "Right to Withdraw Consent"
+      },
+      "explanation": "Explains the right to withdraw consent and provides multiple easy ways to exercise it, making withdrawal as accessible as giving consent."
+    },
+    {
+      "policy_snippet": "Where we process your data based on your consent, you may withdraw that consent at any time. Withdrawal of consent will not affect the lawfulness of processing based on consent before its withdrawal. You can withdraw consent by emailing privacy@company.com or using the consent management tools in your account.",
+      "annotation": {
+        "span": "you may withdraw that consent at any time. Withdrawal of consent will not affect the lawfulness of processing based on consent before its withdrawal",
+        "label": "Right to Withdraw Consent"
+      },
+      "explanation": "References the GDPR requirement and explains the effect of withdrawal on previous processing."
+    }
+  ],
+  "source_references": [
+    {"type": "GDPR", "link": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32016R0679"},
+    {"type": "Guideline", "link": "https://edpb.europa.eu/our-work-tools/our-documents/guidelines/guidelines-consent_en"}
+  ],
+  "last_updated": "2024-01-15",
+  "version": "v1.0"
+} 

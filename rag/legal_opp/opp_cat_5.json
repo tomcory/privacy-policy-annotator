@@ -1,0 +1,5 @@
+{
+  "label": "Data Retention",
+  "description": "Privacy practice specifying the retention period for collected user information.",
+  "usage": "Apply when the policy specifies how long user data is kept before being deleted, anonymized, or aggregated.\n\nKey attributes to consider:\n- Retention Period (required): How long data is kept - indefinitely, limited time, specific stated period\n- Retention Purpose (required): Why data is retained - service performance, legal requirements, analytics, security, etc.\n- Personal Information Type (required): What type of data the retention policy applies to"
+}

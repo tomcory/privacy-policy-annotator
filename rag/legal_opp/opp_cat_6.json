@@ -1,0 +1,5 @@
+{
+  "label": "Data Security",
+  "description": "Practice that describes how users’ information is secured and protected, e.g., from confidentiality, integrity, or availability breaches. Common practices include the encryption of stored data and online communications.",
+  "usage": "Apply when the policy describes security measures and protections for user data.\n\nKey attributes to consider:\n- Security Measure (required): What security is implemented - secure transfer, authentication, storage, access limitations, training, audits, security programs, or generic statements"
+}
